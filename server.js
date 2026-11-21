@@ -94,6 +94,7 @@ function publicState(room, meIdx) {
     room: room.code,
     state: room.state,
     public: !!room.public,
+    game: room.game || null,
     me: meIdx,
     players: room.players.map((p, i) => ({
       name: p.name,
@@ -165,6 +166,7 @@ function handle(ws, msg) {
   if (msg.t === 'start') {
     if (idx !== 0 || room.state !== 'lobby') return;
     room.state = 'playing';
+    room.game = crypto.randomBytes(6).toString('hex'); // Spiel-Nummer, damit jedes Spiel nur einmal gezählt wird
     room.players.forEach(p => { p.card = newCard(); p.history = []; });
     broadcast(room);
     return pushRooms();
