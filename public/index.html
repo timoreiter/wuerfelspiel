@@ -65,6 +65,13 @@
   .hero p { margin:0; color:rgba(244,237,218,.8); }
   .slip { background:var(--paper); color:#222; border-radius:6px; padding:18px 18px 20px; box-shadow:0 12px 28px rgba(0,0,0,.45); position:relative; }
   .slip label { display:block; font-weight:700; margin-bottom:4px; color:#444; }
+  /* Startseite: Name, Knopf mit Schalter, Statistik */
+  .gorow { display:flex; align-items:center; gap:14px; margin-bottom:14px; }
+  .gorow .btn { flex:1; width:auto; }
+  .slip label.sw.col { flex:none; width:112px; flex-direction:column; gap:6px; margin:0; text-align:center; font-size:15px; line-height:1.15; color:#444; }
+  .btn.paper { display:flex; align-items:center; justify-content:center; gap:10px; background:#f6f1e3; color:#444; border:2px solid #d9d2bd; box-shadow:0 4px 0 #bdb6a0; font-family:var(--ui); font-weight:700; font-size:22px; padding:12px 18px; }
+  .btn.paper:active { transform:translateY(3px); box-shadow:0 1px 0 #bdb6a0; }
+  .btn.paper svg { width:26px; height:26px; stroke:currentColor; fill:none; stroke-width:2.8; stroke-linecap:round; }
   .hello { margin-bottom:18px; }
   .hello span { display:block; font-weight:700; color:#444; }
   .hello b { display:block; font-family:var(--pen); font-weight:700; font-size:40px; line-height:1.1; color:var(--ink); border-bottom:2px solid var(--ink); padding:0 2px 2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -358,33 +365,31 @@ function renderEntry(app) {
   const joining = !!roomCode;
   const saved = getName();
   app.innerHTML = `
-    ${STAT_BTN.replace('class="statbtn"', 'class="statbtn abs"')}
     <div class="hero">
       <div class="dice-row">${[1,5,3,6,2].map(die).join('')}</div>
       <h1>Würfeln</h1>
-      <p>${joining ? 'Du setzt dich gleich an den Tisch.' : 'Der Zettel für den Spieleabend.'}</p>
+      ${joining ? '<p>Du setzt dich gleich an den Tisch.</p>' : ''}
     </div>
     <div class="slip">
-      ${saved
-        ? `<div class="hello"><span>Du spielst als</span><b>${esc(saved)}</b><button class="lnk" id="chg">Nicht du? Name ändern</button></div>`
-        : `<label for="name">Dein Name</label>
-      <input id="name" maxlength="16" autocomplete="off" autocapitalize="words" enterkeyhint="go">`}
-      ${joining ? '' : `<label class="sw"><input type="checkbox" id="pub"><span class="tr"></span><span>Tisch für alle sichtbar<small>Andere sehen ihn unter „Offene Tische“.</small></span></label>`}
-      <button class="btn" id="go">${joining ? 'An den Tisch setzen' : 'Runde eröffnen'}</button>
+      <label for="name">Spieler</label>
+      <input id="name" maxlength="16" autocomplete="off" autocapitalize="words" enterkeyhint="go" value="${esc(saved)}">
+      <div class="gorow">
+        <button class="btn" id="go">${joining ? 'An den Tisch setzen' : 'Runde eröffnen'}</button>
+        ${joining ? '' : `<label class="sw col"><input type="checkbox" id="pub"><span class="tr"></span><span>Tisch für alle sichtbar</span></label>`}
+      </div>
+      <button class="btn paper" data-stats><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V11M12 20V4M19 20V14"/></svg>Statistik</button>
       <div class="err" role="alert">${esc(error)}</div>
     </div>
     ${joining ? `<p class="hint">Raum ${esc(roomCode)}</p><button class="back" id="back">Zurück zu den offenen Tischen</button>` : '<div class="rooms" id="rooms"></div>'}`;
   const go = () => {
-    const name = saved || $('name').value.trim();
+    const name = $('name').value.trim();
     if (!name) { error = 'Schreib zuerst deinen Namen auf.'; return renderEntry(app); }
     error = ''; fatal = false; pendingName = name;
     const pub = !joining && $('pub').checked;
     connect(() => send(joining ? { t: 'join', room: roomCode, name } : { t: 'create', name, public: pub }));
   };
   $('go').onclick = go;
-  if ($('name')) $('name').onkeydown = e => { if (e.key === 'Enter') go(); };
-  const chg = $('chg');
-  if (chg) chg.onclick = () => { forgetName(); error = ''; renderEntry(app); $('name').focus(); };
+  $('name').onkeydown = e => { if (e.key === 'Enter') go(); };
   const back = $('back');
   if (back) back.onclick = () => { roomCode = ''; error = ''; history.replaceState(null, '', location.pathname); renderEntry(app); startList(); };
   if (!joining) fillRooms();
@@ -404,7 +409,7 @@ function fillRooms() {
     const name = $('name') ? $('name').value : '';
     roomCode = b.dataset.code; error = ''; fatal = false;
     renderEntry($('app'));
-    if ($('name')) { $('name').value = name; $('name').focus(); }
+    if ($('name')) { $('name').value = name; if (!name) $('name').focus(); }
   });
 }
 
