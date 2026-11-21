@@ -65,6 +65,10 @@
   .hero p { margin:0; color:rgba(244,237,218,.8); }
   .slip { background:var(--paper); color:#222; border-radius:6px; padding:18px 18px 20px; box-shadow:0 12px 28px rgba(0,0,0,.45); position:relative; }
   .slip label { display:block; font-weight:700; margin-bottom:4px; color:#444; }
+  .hello { margin-bottom:18px; }
+  .hello span { display:block; font-weight:700; color:#444; }
+  .hello b { display:block; font-family:var(--pen); font-weight:700; font-size:40px; line-height:1.1; color:var(--ink); border-bottom:2px solid var(--ink); padding:0 2px 2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .hello .lnk { background:none; border:0; padding:8px 0 0; color:#555; font-weight:600; font-size:15px; text-decoration:underline; }
   .slip input { width:100%; font-family:var(--pen); font-weight:700; font-size:34px; color:var(--ink); background:transparent; border:0; border-bottom:2px solid var(--ink); padding:2px 2px 0; margin-bottom:18px; outline:none; border-radius:0; }
   .slip input:focus { border-bottom-color:var(--red); }
   .err { color:#ffb4a9; min-height:1.3em; margin:10px 2px 0; font-weight:600; }
@@ -205,6 +209,38 @@
   .rest li b { font-family:var(--display); font-weight:400; }
   .winin .btns { display:grid; gap:12px; }
 
+  /* ---------- Statistik ---------- */
+  .statbtn { display:inline-flex; align-items:center; gap:7px; background:rgba(0,0,0,.25); color:var(--ivory); border:2px solid rgba(244,237,218,.25); border-radius:20px; padding:6px 12px 6px 10px; font-weight:700; font-size:15px; }
+  .statbtn svg { width:18px; height:18px; stroke:currentColor; fill:none; stroke-width:2.6; stroke-linecap:round; }
+  .statbtn.abs { position:absolute; top:max(14px, env(safe-area-inset-top)); right:14px; z-index:2; }
+  .top .rt { display:flex; gap:8px; align-items:center; }
+  #stats { position:fixed; inset:0; z-index:40; display:none; overflow-y:auto; background:radial-gradient(120% 80% at 50% 0%, var(--felt-hi), var(--felt-deep)); }
+  #stats.show { display:block; animation:fade .25s ease-out; }
+  .statin { max-width:480px; margin:0 auto; padding:calc(18px + env(safe-area-inset-top)) 16px 36px; }
+  .sthead { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+  .sthead h2 { font-family:var(--display); font-weight:400; font-size:32px; margin:0; text-shadow:0 3px 0 var(--felt-line); }
+  .sthead button { background:none; border:2px solid rgba(244,237,218,.4); color:var(--ivory); border-radius:20px; padding:7px 14px; font-weight:700; }
+  .tiles { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .tile { background:var(--paper); color:var(--ink); border-radius:10px; padding:12px 14px 10px; box-shadow:0 6px 0 rgba(0,0,0,.25); }
+  .tile b { display:block; font-family:var(--pen); font-weight:700; font-size:44px; line-height:1; }
+  .tile span { font-weight:600; font-size:15px; color:#555; }
+  .recap { color:rgba(244,237,218,.85); margin:14px 2px 24px; }
+  .stsec { font-family:var(--display); font-weight:400; font-size:20px; margin:0 0 10px; }
+  .vs { background:rgba(0,0,0,.25); border-radius:14px; padding:12px; margin-bottom:10px; }
+  .vs .l1 { display:flex; align-items:center; gap:12px; }
+  .vs .tok { width:38px; height:38px; font-size:19px; flex:none; }
+  .vs .nm { flex:1; min-width:0; }
+  .vs .nm b { display:block; font-size:18px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .vs .nm small { color:rgba(244,237,218,.7); font-size:14px; }
+  .vs .sc { font-family:var(--display); font-size:26px; color:var(--brass); flex:none; }
+  .bar3 { display:flex; height:10px; border-radius:6px; overflow:hidden; margin:10px 0 8px; background:rgba(255,255,255,.1); }
+  .bar3 i { display:block; height:100%; } .bar3 .w { background:#5fae6c; } .bar3 .d { background:#b9b39c; } .bar3 .l { background:var(--red); }
+  .vs .l3 { font-size:15px; color:rgba(244,237,218,.88); }
+  .vs .l4 { font-size:14px; color:rgba(244,237,218,.65); margin-top:2px; }
+  .stempty { background:rgba(0,0,0,.25); border-radius:14px; padding:18px; color:rgba(244,237,218,.85); }
+  .stfoot { margin-top:22px; text-align:center; color:rgba(244,237,218,.65); font-size:14px; }
+  .stfoot button { margin-top:12px; }
+
   @media (prefers-reduced-motion:reduce) {
     *, *::before, *::after { animation-duration:.01ms !important; animation-delay:0ms !important; transition:none !important; }
   }
@@ -215,6 +251,7 @@
 <div class="wrap" id="app"></div>
 <div id="scrim"><div id="picker" role="dialog" aria-modal="true"></div></div>
 <div id="win"><canvas id="rain"></canvas><div class="winin" id="winin"></div></div>
+<div id="stats"><div class="statin" id="statin"></div></div>
 
 <script>
 const ROWS = ['1','2','3','4','5','6','Str','Fu','Po','Gr'];
@@ -249,6 +286,13 @@ const params = new URLSearchParams(location.search);
 let roomCode = (params.get('room') || '').toUpperCase();
 const store = () => { try { return JSON.parse(localStorage.getItem('wuerfel_' + roomCode) || 'null'); } catch { return null; } };
 
+// Name, den dieses Gerät beim ersten Mal angegeben hat
+const NAME_KEY = 'wuerfel_name';
+const getName = () => { try { return (localStorage.getItem(NAME_KEY) || '').trim(); } catch { return ''; } };
+const saveName = n => { try { localStorage.setItem(NAME_KEY, n); } catch {} };
+const forgetName = () => { try { localStorage.removeItem(NAME_KEY); } catch {} };
+let pendingName = '';
+
 let rooms = [];
 const startList = () => connect(() => send({ t: 'list' }));
 
@@ -259,6 +303,7 @@ function connect(then) {
   ws.onmessage = e => {
     const m = JSON.parse(e.data);
     if (m.t === 'welcome') {
+      if (pendingName) { saveName(pendingName); pendingName = ''; } // erst speichern, wenn der Name wirklich angenommen wurde
       roomCode = m.room; dropped = false;
       try { localStorage.setItem('wuerfel_' + m.room, JSON.stringify({ token: m.token })); } catch {}
       history.replaceState(null, '', '?room=' + m.room);
@@ -268,6 +313,7 @@ function connect(then) {
     } else if (m.t === 'error') {
       error = m.msg; if (m.fatal) fatal = true; render();
     } else if (m.t === 'state') {
+      if (m.state === 'finished' && m.game) recordGame(m);
       if (m.state !== 'finished') closedWin = false;
       S = m;
       if (view === null || view >= S.players.length) view = S.me;
@@ -283,8 +329,11 @@ function connect(then) {
 }
 const send = o => ws && ws.readyState === 1 && ws.send(JSON.stringify(o));
 
-if (roomCode && store()) connect(() => send({ t: 'join', room: roomCode, token: store().token }));
-else { render(); if (!roomCode) startList(); }
+// Start erst, wenn das ganze Skript geladen ist
+window.addEventListener('DOMContentLoaded', () => {
+  if (roomCode && store()) connect(() => send({ t: 'join', room: roomCode, token: store().token }));
+  else { render(); if (!roomCode) startList(); }
+});
 
 function canPlace(card, col, row) {
   if (card[col][row] !== null) return false;
@@ -294,7 +343,8 @@ function canPlace(card, col, row) {
 }
 
 const logo = `<div class="logo">${die(5)}<span>Würfeln</span></div>`;
-const topbar = () => `<div class="top">${logo}${S ? `<div class="code" title="Raumcode">${esc(S.room)}</div>` : ''}</div>${dropped ? '<div class="banner">Verbindung weg. Ich versuche es neu …</div>' : ''}`;
+const STAT_BTN = `<button class="statbtn" data-stats><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V11M12 20V4M19 20V14"/></svg>Statistik</button>`;
+const topbar = () => `<div class="top">${logo}<div class="rt">${STAT_BTN}${S ? `<div class="code" title="Raumcode">${esc(S.room)}</div>` : ''}</div></div>${dropped ? '<div class="banner">Verbindung weg. Ich versuche es neu …</div>' : ''}`;
 
 function render() {
   const app = $('app');
@@ -306,29 +356,35 @@ function render() {
 /* ---------- Einstieg ---------- */
 function renderEntry(app) {
   const joining = !!roomCode;
+  const saved = getName();
   app.innerHTML = `
+    ${STAT_BTN.replace('class="statbtn"', 'class="statbtn abs"')}
     <div class="hero">
       <div class="dice-row">${[1,5,3,6,2].map(die).join('')}</div>
       <h1>Würfeln</h1>
       <p>${joining ? 'Du setzt dich gleich an den Tisch.' : 'Der Zettel für den Spieleabend.'}</p>
     </div>
     <div class="slip">
-      <label for="name">Dein Name</label>
-      <input id="name" maxlength="16" autocomplete="off" autocapitalize="words" enterkeyhint="go">
+      ${saved
+        ? `<div class="hello"><span>Du spielst als</span><b>${esc(saved)}</b><button class="lnk" id="chg">Nicht du? Name ändern</button></div>`
+        : `<label for="name">Dein Name</label>
+      <input id="name" maxlength="16" autocomplete="off" autocapitalize="words" enterkeyhint="go">`}
       ${joining ? '' : `<label class="sw"><input type="checkbox" id="pub"><span class="tr"></span><span>Tisch für alle sichtbar<small>Andere sehen ihn unter „Offene Tische“.</small></span></label>`}
       <button class="btn" id="go">${joining ? 'An den Tisch setzen' : 'Runde eröffnen'}</button>
       <div class="err" role="alert">${esc(error)}</div>
     </div>
     ${joining ? `<p class="hint">Raum ${esc(roomCode)}</p><button class="back" id="back">Zurück zu den offenen Tischen</button>` : '<div class="rooms" id="rooms"></div>'}`;
   const go = () => {
-    const name = $('name').value.trim();
+    const name = saved || $('name').value.trim();
     if (!name) { error = 'Schreib zuerst deinen Namen auf.'; return renderEntry(app); }
-    error = ''; fatal = false;
+    error = ''; fatal = false; pendingName = name;
     const pub = !joining && $('pub').checked;
     connect(() => send(joining ? { t: 'join', room: roomCode, name } : { t: 'create', name, public: pub }));
   };
   $('go').onclick = go;
-  $('name').onkeydown = e => { if (e.key === 'Enter') go(); };
+  if ($('name')) $('name').onkeydown = e => { if (e.key === 'Enter') go(); };
+  const chg = $('chg');
+  if (chg) chg.onclick = () => { forgetName(); error = ''; renderEntry(app); $('name').focus(); };
   const back = $('back');
   if (back) back.onclick = () => { roomCode = ''; error = ''; history.replaceState(null, '', location.pathname); renderEntry(app); startList(); };
   if (!joining) fillRooms();
@@ -348,7 +404,7 @@ function fillRooms() {
     const name = $('name') ? $('name').value : '';
     roomCode = b.dataset.code; error = ''; fatal = false;
     renderEntry($('app'));
-    $('name').value = name; $('name').focus();
+    if ($('name')) { $('name').value = name; $('name').focus(); }
   });
 }
 
@@ -513,6 +569,7 @@ function showWinner() {
     ${rest ? `<ul class="rest">${rest}</ul>` : ''}
     <div class="btns">
       ${S.me === 0 ? '<button class="btn" id="again2">Neue Runde</button>' : ''}
+      <button class="btn ghost" data-stats>Statistik</button>
       <button class="btn ghost" id="closew">Zettel ansehen</button>
     </div>`;
   $('win').classList.add('show');
@@ -530,6 +587,79 @@ function showWinner() {
   startRain();
 }
 function hideWinner() { $('win').classList.remove('show'); stopRain(); }
+
+/* ---------- Statistik (wird nur auf diesem Gerät gespeichert) ---------- */
+const STAT_KEY = 'wuerfel_stats_v1';
+const loadStats = () => { try { return JSON.parse(localStorage.getItem(STAT_KEY)) || { games: [] }; } catch { return { games: [] }; } };
+const saveStats = s => { try { localStorage.setItem(STAT_KEY, JSON.stringify(s)); } catch {} };
+
+// Jedes fertige Spiel wird genau einmal gespeichert (die Spiel-Nummer verhindert Doppelzählung)
+function recordGame(m) {
+  const st = loadStats();
+  if (st.games.some(g => g.id === m.game)) return;
+  const me = m.players[m.me];
+  st.games.push({ id: m.game, t: Date.now(), i: m.me, score: me.total, players: m.players.map(p => ({ n: p.name, s: p.total })) });
+  if (st.games.length > 500) st.games.shift();
+  saveStats(st);
+}
+
+function aggregate() {
+  const games = loadStats().games;
+  const r = { n: games.length, w: 0, d: 0, l: 0, sum: 0, best: 0, opp: [] };
+  const opp = {};
+  games.forEach(g => {
+    const top = Math.max(...g.players.map(p => p.s));
+    r.sum += g.score; r.best = Math.max(r.best, g.score);
+    if (g.score === top) (g.players.filter(p => p.s === top).length > 1 ? r.d++ : r.w++); else r.l++;
+    g.players.forEach((p, idx) => {
+      if (idx === g.i) return;
+      const o = opp[p.n.toLowerCase()] || (opp[p.n.toLowerCase()] = { name: p.n, n: 0, w: 0, d: 0, l: 0, mine: 0, theirs: 0 });
+      o.name = p.n; o.n++; o.mine += g.score; o.theirs += p.s;
+      if (g.score > p.s) o.w++; else if (g.score === p.s) o.d++; else o.l++;
+    });
+  });
+  r.opp = Object.values(opp).sort((a, b) => b.n - a.n || a.name.localeCompare(b.name));
+  return r;
+}
+
+const fmt = x => Number(x).toLocaleString('de-AT', { maximumFractionDigits: 1 });
+const nameColor = n => COLORS[[...n.toLowerCase()].reduce((a, c) => a + c.charCodeAt(0), 0) % COLORS.length];
+const plural = (n, a, b) => n + ' ' + (n === 1 ? a : b);
+
+function openStats() {
+  const a = aggregate();
+  let body;
+  if (!a.n) {
+    body = `<div class="stempty">Noch keine Spiele gespeichert. Sobald ein Spiel fertig ist, erscheinen hier deine Siege, Niederlagen und Durchschnittspunkte.</div>`;
+  } else {
+    body = `<div class="tiles">
+        <div class="tile"><b>${a.n}</b><span>${a.n === 1 ? 'Spiel' : 'Spiele'}</span></div>
+        <div class="tile"><b>${a.w}</b><span>${a.w === 1 ? 'Sieg' : 'Siege'}</span></div>
+        <div class="tile"><b>${fmt(a.sum / a.n)}</b><span>Ø Punkte pro Spiel</span></div>
+        <div class="tile"><b>${a.best}</b><span>Bestes Spiel</span></div>
+      </div>
+      <p class="recap">${plural(a.w, 'Sieg', 'Siege')}, ${plural(a.d, 'Unentschieden', 'Unentschieden')}, ${plural(a.l, 'Niederlage', 'Niederlagen')}.</p>
+      <h3 class="stsec">Gegen andere Spieler</h3>
+      ${a.opp.map(o => `<div class="vs">
+        <div class="l1"><div class="tok" style="--c:${nameColor(o.name)}">${esc(o.name[0].toUpperCase())}</div>
+          <div class="nm"><b>${esc(o.name)}</b><small>${plural(o.n, 'Spiel', 'Spiele')}</small></div>
+          <div class="sc" title="Siege zu Niederlagen">${o.w}:${o.l}</div></div>
+        <div class="bar3" aria-hidden="true"><i class="w" style="width:${o.w / o.n * 100}%"></i><i class="d" style="width:${o.d / o.n * 100}%"></i><i class="l" style="width:${o.l / o.n * 100}%"></i></div>
+        <div class="l3">${plural(o.w, 'Sieg', 'Siege')}, ${o.d} unentschieden, ${plural(o.l, 'Niederlage', 'Niederlagen')}</div>
+        <div class="l4">Ø Punkte: du ${fmt(o.mine / o.n)}, ${esc(o.name)} ${fmt(o.theirs / o.n)}</div>
+      </div>`).join('')}`;
+  }
+  $('statin').innerHTML = `<div class="sthead"><h2>Statistik</h2><button id="stclose">Schließen</button></div>${body}
+    <div class="stfoot">Die Statistik liegt nur auf diesem Gerät.${a.n ? '<br><button class="btn ghost" id="streset">Statistik löschen</button>' : ''}</div>`;
+  $('stats').classList.add('show');
+  $('stats').scrollTop = 0;
+  $('stclose').onclick = closeStats;
+  const rs = $('streset');
+  if (rs) rs.onclick = () => { if (confirm('Wirklich alle gespeicherten Spiele löschen?')) { saveStats({ games: [] }); openStats(); } };
+}
+function closeStats() { $('stats').classList.remove('show'); }
+document.addEventListener('click', e => { if (e.target.closest('[data-stats]')) openStats(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeStats(); });
 
 /* Würfelregen */
 let rainOn = false;
