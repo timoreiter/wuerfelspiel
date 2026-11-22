@@ -80,7 +80,7 @@ const genCode = () => {
 const roomList = () => Object.values(rooms)
   .filter(r => r.public && r.state === 'lobby' && r.players.length < MAX_PLAYERS)
   .slice(0, 20)
-  .map(r => ({ code: r.code, host: r.players[0].name, names: r.players.map(p => p.name), count: r.players.length, max: MAX_PLAYERS }));
+  .map(r => ({ code: r.code, host: r.players[0].name, names: r.players.map(p => p.name), count: r.players.length, max: MAX_PLAYERS, stake: r.stake || 0 }));
 
 // Alle, die gerade noch in keinem Raum sind (Startseite), sehen die Liste live
 function pushRooms() {
@@ -94,6 +94,7 @@ function publicState(room, meIdx) {
     room: room.code,
     state: room.state,
     public: !!room.public,
+    stake: room.stake || 0, // Einsatz in Cent pro Punkt Unterschied (0 = ohne Geld)
     game: room.game || null,
     me: meIdx,
     players: room.players.map((p, i) => ({
@@ -125,7 +126,7 @@ function handle(ws, msg) {
     if (!name) return send(ws, { t: 'error', msg: 'Bitte einen Namen eingeben.' });
     const code = genCode();
     const token = crypto.randomBytes(12).toString('hex');
-    const room = { code, state: 'lobby', public: !!msg.public, players: [newPlayer(name, token, ws)] };
+    const room = { code, state: 'lobby', public: !!msg.public, stake: 0, players: [newPlayer(name, token, ws)] };
     rooms[code] = room;
     ws.room = room; ws.token = token;
     send(ws, { t: 'welcome', room: code, token });
@@ -186,6 +187,16 @@ function handle(ws, msg) {
     room.state = 'lobby';
     room.players = room.players.filter(p => p.connected);
     room.players.forEach(p => { p.card = newCard(); p.history = []; });
+    broadcast(room);
+    return pushRooms();
+  }
+
+  // Einsatz pro Punkt Unterschied: nur der Gastgeber, nur im Warteraum, 0 (aus) oder 10 bis 200 Cent in 10er-Schritten
+  if (msg.t === 'stake') {
+    if (idx !== 0 || room.state !== 'lobby') return;
+    const v = msg.value;
+    if (!Number.isInteger(v) || v < 0 || v > 200 || v % 10 !== 0) return;
+    room.stake = v;
     broadcast(room);
     return pushRooms();
   }
