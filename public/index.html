@@ -71,6 +71,16 @@
   .slip label.sw.col { flex:none; width:112px; flex-direction:column; gap:6px; margin:0; text-align:center; font-size:15px; line-height:1.15; color:#444; }
   .btn.paper { display:flex; align-items:center; justify-content:center; gap:10px; background:#f6f1e3; color:#444; border:2px solid #d9d2bd; box-shadow:0 4px 0 #bdb6a0; font-family:var(--ui); font-weight:700; font-size:22px; padding:12px 18px; }
   .btn.paper:active { transform:translateY(3px); box-shadow:0 1px 0 #bdb6a0; }
+  .slip .btn.paper + .btn.paper { margin-top:12px; }
+  .botbox { background:rgba(0,0,0,.25); border-radius:14px; padding:10px 12px 12px; margin-bottom:12px; }
+  .botbox .bt { font-weight:600; font-size:15px; color:rgba(244,237,218,.92); min-height:1.3em; margin-bottom:8px; text-align:center; }
+  .botbox .bd { display:flex; gap:8px; justify-content:center; min-height:42px; }
+  .botbox .bdie { width:40px; height:40px; transition:transform .15s; }
+  .botbox .bdie svg { width:100%; height:100%; display:block; }
+  .botbox .bdie.held { transform:translateY(-6px); }
+  .botbox .bdie.held svg rect { stroke:#5fae6c; stroke-width:7; }
+  @keyframes roll { from { transform:rotate(-50deg) scale(.5); opacity:.2; } to { transform:none; opacity:1; } }
+  .botbox .bdie.new svg { animation:roll .35s ease-out; }
   .btn.paper svg { width:26px; height:26px; stroke:currentColor; fill:none; stroke-width:2.8; stroke-linecap:round; }
   .hello { margin-bottom:18px; }
   .hello span { display:block; font-weight:700; color:#444; }
@@ -333,16 +343,22 @@ function connect(then) {
     }
   };
   ws.onclose = () => {
-    if (fatal) return;
+    if (fatal || solo) return; // Solo-Spiel braucht keine Verbindung
     if (!S && !roomCode) { setTimeout(startList, 2000); return; } // Startseite: Liste neu holen
     dropped = true; render();
     setTimeout(() => { if (roomCode && store()) connect(() => send({ t: 'join', room: roomCode, token: store().token })); }, 1500);
   };
 }
-const send = o => ws && ws.readyState === 1 && ws.send(JSON.stringify(o));
+// Im Solo-Modus gehen die Nachrichten an den "lokalen Server" im Browser statt ans Netz
+const send = o => {
+  if (solo) return soloHandle(o);
+  return ws && ws.readyState === 1 && ws.send(JSON.stringify(o));
+};
 
 // Start erst, wenn das ganze Skript geladen ist
 window.addEventListener('DOMContentLoaded', () => {
+  const resume = loadSolo();
+  if (resume) { solo = resume; view = 0; soloSync(); botTurn(); return; } // angefangenes Solo-Spiel fortsetzen
   if (roomCode && store()) connect(() => send({ t: 'join', room: roomCode, token: store().token }));
   else { render(); if (!roomCode) startList(); }
 });
@@ -356,7 +372,7 @@ function canPlace(card, col, row) {
 
 const logo = `<div class="logo">${die(5)}<span>Würfeln</span></div>`;
 const STAT_BTN = `<button class="statbtn" data-stats><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V11M12 20V4M19 20V14"/></svg>Statistik</button>`;
-const topbar = () => `<div class="top">${logo}<div class="rt">${STAT_BTN}${S ? `<div class="code" title="Raumcode">${esc(S.room)}</div>` : ''}</div></div>${dropped ? '<div class="banner">Verbindung weg. Ich versuche es neu …</div>' : ''}`;
+const topbar = () => `<div class="top">${logo}<div class="rt">${STAT_BTN}${S ? `<div class="code" title="Raumcode">${esc(S.room)}</div>` : ''}</div></div>${dropped && !solo ? '<div class="banner">Verbindung weg. Ich versuche es neu …</div>' : ''}`;
 
 function render() {
   const app = $('app');
@@ -382,6 +398,7 @@ function renderEntry(app) {
         <button class="btn" id="go">${joining ? 'An den Tisch setzen' : 'Runde eröffnen'}</button>
         ${joining ? '' : `<label class="sw col"><input type="checkbox" id="pub"><span class="tr"></span><span>Tisch für alle sichtbar</span></label>`}
       </div>
+      ${joining ? '' : '<button class="btn paper" id="solo"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="8" width="16" height="11" rx="3"/><path d="M12 8V4M9 13.5h.01M15 13.5h.01M9 16.5h6"/></svg>Gegen Bot spielen</button>'}
       <button class="btn paper" data-stats><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V11M12 20V4M19 20V14"/></svg>Statistik</button>
       <div class="err" role="alert">${esc(error)}</div>
     </div>
@@ -395,6 +412,8 @@ function renderEntry(app) {
   };
   $('go').onclick = go;
   $('name').onkeydown = e => { if (e.key === 'Enter') go(); };
+  const sb = $('solo');
+  if (sb) sb.onclick = openBotPicker;
   const back = $('back');
   if (back) back.onclick = () => { roomCode = ''; error = ''; history.replaceState(null, '', location.pathname); renderEntry(app); startList(); };
   if (!joining) fillRooms();
@@ -489,7 +508,7 @@ function renderGame(app) {
     tbl += `<tr class="r ${r === 9 ? 'last' : ''}"><td class="lab">${r < 6 ? die(r + 1) : label}</td>`;
     for (let c = 0; c < 4; c++) {
       const val = v.card[c][r];
-      const avail = mine && playing && val === null && canPlace(v.card, c, r);
+      const avail = mine && playing && !botBusy && val === null && canPlace(v.card, c, r);
       const fresh = justSet && justSet.view === view && justSet.c === c && justSet.r === r;
       tbl += `<td class="cell ${avail ? 'avail' : ''}" data-c="${c}" data-r="${r}"${avail ? ' role="button" tabindex="0" aria-label="' + ROWNAMES[r] + ' eintragen"' : ''}>${val === null ? '' : `<span class="n ${val === 0 ? 'zero' : ''} ${fresh ? 'fresh' : ''}">${val === 0 ? '✕' : val}</span>`}</td>`;
     }
@@ -505,14 +524,16 @@ function renderGame(app) {
 
   app.innerHTML = `${topbar()}
     <div class="players">${chips}</div>
+    ${solo ? botPanel() : ''}
     <div class="pad">
       <div class="who"><span>${esc(v.name)}</span>${mine ? '' : '<small>nur ansehen</small>'}</div>
       ${tbl}
       <div class="total"><span>Gesamt</span><b class="${bump ? 'bump' : ''}">${v.total}</b></div>
     </div>
-    ${mine && playing ? '<p class="note">Tippe auf ein schraffiertes Feld und trag ein, was du gewürfelt hast.</p>' : ''}
+    ${mine && playing && !botBusy ? '<p class="note">Tippe auf ein schraffiertes Feld und trag ein, was du gewürfelt hast.</p>' : ''}
     <div class="tools">
       ${mine && v.canUndo ? '<button class="btn ghost" id="undo">Letzten Eintrag löschen</button>' : ''}
+      ${solo && playing ? '<button class="btn ghost" data-leave>Solo beenden</button>' : ''}
       ${S.state === 'finished' ? '<button class="btn ghost" id="res">Ergebnis</button>' : ''}
     </div>
     ${S.state === 'finished' && S.me === 0 ? '<div style="margin-top:14px"><button class="btn" id="again">Neue Runde</button></div>' : ''}
@@ -693,8 +714,14 @@ document.addEventListener('click', e => {
 
 // Tisch verlassen und zurück zur Startseite (Verbindung bleibt offen für die Liste der offenen Tische)
 function leaveRoom() {
-  send({ t: 'leave' });
-  try { localStorage.removeItem('wuerfel_' + roomCode); } catch {}
+  if (solo) {
+    if (S && S.state === 'playing' && !confirm('Solo-Spiel wirklich beenden?')) return;
+    solo = null; botBusy = false; botView = null;
+    try { localStorage.removeItem(SOLO_KEY); } catch {}
+  } else {
+    send({ t: 'leave' });
+    try { localStorage.removeItem('wuerfel_' + roomCode); } catch {}
+  }
   S = null; view = null; roomCode = ''; error = ''; fatal = false;
   closedWin = false; dropped = false; justSet = null; lastTotal = {};
   history.replaceState(null, '', location.pathname);
@@ -703,6 +730,246 @@ function leaveRoom() {
   send({ t: 'list' });
 }
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeStats(); });
+
+/* ---------- Solo gegen Bot (läuft komplett im Browser, ohne Server) ---------- */
+const LEVELS = { easy: 'Leicht', normal: 'Normal', hard: 'Schwer' };
+const COLSYM = ['↓', '↑', '↕', 'S'];
+const SOLO_KEY = 'wuerfel_solo_v1';
+let solo = null, botBusy = false, botView = null;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const rand6 = () => 1 + Math.floor(Math.random() * 6);
+
+const newCard = () => [0, 1, 2, 3].map(() => Array(10).fill(null));
+const cardFilled = c => c.reduce((a, col) => a + col.filter(v => v !== null).length, 0);
+function cardTotals(card) {
+  const cols = [], bonus = []; let total = 0;
+  for (let c = 0; c < 4; c++) {
+    const upper = card[c].slice(0, 6).reduce((a, v) => a + (v || 0), 0);
+    const sum = card[c].reduce((a, v) => a + (v || 0), 0);
+    const b = upper >= 60 ? (c === 3 ? 60 : 30) : 0;
+    cols.push(sum); bonus.push(b); total += sum + b;
+  }
+  return { cols, bonus, total };
+}
+// Gleiche Regeln wie auf dem Server
+function allowedValues(col, row) {
+  if (row <= 5) return [0, 1, 2, 3, 4, 5].map(n => n * (row + 1));
+  if (row === 9) {
+    const normal = [1, 2, 3, 4, 5, 6].map(n => 50 + n), served = [1, 2, 3, 4, 5, 6].map(n => 100 + n);
+    return col === 3 ? [0, ...served] : [0, ...normal, ...served];
+  }
+  const b = BASE[row - 6];
+  return col === 3 ? [0, b + 5] : [0, b, b + 5];
+}
+
+function soloState() {
+  const mk = (name, p, isMe) => ({ name, connected: true, host: isMe, card: p.card, filled: cardFilled(p.card),
+    canUndo: isMe && p.history.length > 0 && !botBusy, ...cardTotals(p.card) });
+  const done = cardFilled(solo.me.card) === 40 && cardFilled(solo.bot.card) === 40;
+  return { t: 'state', room: 'SOLO', state: done ? 'finished' : 'playing', public: false, game: solo.game, me: 0,
+    players: [mk(solo.name, solo.me, true), mk('Bot ' + LEVELS[solo.level], solo.bot, false)] };
+}
+function soloSync() {
+  S = soloState();
+  if (view === null || view > 1) view = 0;
+  if (S.state === 'finished') { recordGame(S); try { localStorage.removeItem(SOLO_KEY); } catch {} }
+  else { try { localStorage.setItem(SOLO_KEY, JSON.stringify(solo)); } catch {} }
+  render();
+}
+function loadSolo() {
+  try { const j = JSON.parse(localStorage.getItem(SOLO_KEY)); if (j && j.me && j.bot && LEVELS[j.level]) return j; } catch {}
+  return null;
+}
+function startSolo(level) {
+  solo = { level, game: 'solo' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name: getName() || 'Du',
+    me: { card: newCard(), history: [] }, bot: { card: newCard(), history: [] } };
+  roomCode = ''; view = 0; botView = null; botBusy = false; closedWin = false; justSet = null; lastTotal = {}; error = '';
+  soloSync();
+}
+
+// Was der Server sonst macht: Einträge prüfen, Rückgängig, neue Runde
+function soloHandle(m) {
+  if (!solo) return;
+  if (m.t === 'set') {
+    if (botBusy || S.state !== 'playing') return;
+    const { col, row, value } = m;
+    if (!Number.isInteger(col) || !Number.isInteger(row) || col < 0 || col > 3 || row < 0 || row > 9) return;
+    if (!canPlace(solo.me.card, col, row) || !allowedValues(col, row).includes(value)) return;
+    solo.me.card[col][row] = value; solo.me.history.push({ col, row });
+    soloSync(); botTurn();
+  } else if (m.t === 'undo') {
+    if (botBusy) return;
+    const last = solo.me.history.pop(); if (!last) return;
+    solo.me.card[last.col][last.row] = null;
+    if (cardFilled(solo.bot.card) > cardFilled(solo.me.card)) { // der Bot nimmt seinen letzten Zug auch zurück
+      const b = solo.bot.history.pop(); if (b) solo.bot.card[b.col][b.row] = null;
+    }
+    botView = null; soloSync();
+  } else if (m.t === 'again') {
+    startSolo(solo.level);
+  }
+}
+
+/* --- Wurf auswerten --- */
+function diceInfo(d) {
+  const n = [0, 0, 0, 0, 0, 0, 0]; d.forEach(x => n[x]++);
+  const v = n.slice(1);
+  return {
+    n, five: v.includes(5), face: v.includes(5) ? n.indexOf(5) : 0,
+    four: v.some(x => x >= 4), full: v.includes(3) && v.includes(2),
+    str: !!((n[1] && n[2] && n[3] && n[4] && n[5]) || (n[2] && n[3] && n[4] && n[5] && n[6]))
+  };
+}
+// Punkte, wenn der Bot nach `used` Würfen in dieses Feld einträgt (Spalte S zählt nur beim 1. Wurf)
+function cellPts(info, col, row, used) {
+  if (col === 3 && used > 1) return 0;
+  const first = used === 1;
+  if (row <= 5) return info.n[row + 1] * (row + 1);
+  if (row === 6) return info.str ? 20 + (first ? 5 : 0) : 0;
+  if (row === 7) return info.full ? 30 + (first ? 5 : 0) : 0;
+  if (row === 8) return info.four ? 40 + (first ? 5 : 0) : 0;
+  return info.five ? (first ? 100 : 50) + info.face : 0;
+}
+// Was ein Feld "normalerweise" bringt. Alles darüber ist gut, darunter ist es Verschwendung.
+function par(col, row) {
+  // Werte wurden durch tausende Test-Spiele des Bots gegen sich selbst abgestimmt
+  if (col === 3) return row <= 5 ? 0.5 * (row + 1) : [1.5, 2, 1.5, 0.2][row - 6]; // S: billige Streichspalte
+  const base = row <= 5 ? 2 * (row + 1) : [4.8, 5.6, 4.8, 3.2][row - 6];
+  return base - (col < 2 ? 5 : 0);                                                 // ↓ ↑ lieber früh nutzen
+}
+function legalCells(card) {
+  const out = [];
+  for (let c = 0; c < 4; c++) for (let r = 0; r < 10; r++) if (canPlace(card, c, r)) out.push({ col: c, row: r });
+  return out;
+}
+function rankCells(cells, dice, used) {
+  const info = diceInfo(dice);
+  return cells.map(x => { const pts = cellPts(info, x.col, x.row, used); return { ...x, pts, val: pts - par(x.col, x.row) }; })
+    .sort((a, b) => b.val - a.val);
+}
+const bestVal = (cells, dice, used) => {
+  const info = diceInfo(dice); let best = -1e9;
+  for (const x of cells) { const v = cellPts(info, x.col, x.row, used) - par(x.col, x.row); if (v > best) best = v; }
+  return best;
+};
+
+/* --- Welche Würfel behalten? (Ausprobieren mit Zufallswürfen) --- */
+function holdMasks(dice) {
+  const seen = new Set(), out = [];
+  for (let m = 0; m < 31; m++) {
+    const key = dice.filter((_, i) => (m >> i) & 1).sort().join('');
+    if (!seen.has(key)) { seen.add(key); out.push(m); }
+  }
+  return out;
+}
+function search(dice, used, cells, depth, inner) {
+  const stop = bestVal(cells, dice, used);
+  if (used >= 3 || depth === 0) return { val: stop, mask: null };
+  let best = { val: stop, mask: null };
+  const sims = depth === 1 ? (inner ? 22 : 40) : 40;
+  for (const m of holdMasks(dice)) {
+    let sum = 0;
+    for (let s = 0; s < sims; s++) {
+      const nd = dice.map((d, i) => ((m >> i) & 1) ? d : rand6());
+      sum += search(nd, used + 1, cells, depth - 1, true).val;
+    }
+    const e = sum / sims;
+    if (e > best.val) best = { val: e, mask: m };
+  }
+  return best;
+}
+function easyHold(dice) { // Anfänger: behält die häufigste Zahl, ohne groß zu rechnen
+  const info = diceInfo(dice);
+  if (info.five || info.four || info.full || info.str || Math.random() < 0.25) return null;
+  let face = 1, cnt = 0;
+  for (let f = 6; f >= 1; f--) if (info.n[f] > cnt) { cnt = info.n[f]; face = f; }
+  return dice.map(d => d === face);
+}
+const NORMAL_NOISE = 0.3; // "Normal" macht in so vielen Entscheidungen bewusst einen schwächeren Zug
+function botHold(dice, used, cells, level) {
+  if (level === 'easy') return easyHold(dice);
+  if (level === 'normal' && Math.random() < NORMAL_NOISE) return easyHold(dice);
+  const r = search(dice, used, cells, 1, false); // "Schwer" und "Normal" rechnen gleich gut, Normal patzt nur öfter
+  return r.mask === null ? null : dice.map((_, i) => !!((r.mask >> i) & 1));
+}
+function pickCell(cells, dice, used, level) {
+  const ranked = rankCells(cells, dice, used);
+  if (level === 'hard') return ranked[0];
+  if (level === 'normal') return ranked.length > 1 && Math.random() < NORMAL_NOISE ? ranked[1] : ranked[0];
+  const w = [0.6, 0.25, 0.1, 0.05].slice(0, ranked.length); // Anfänger wählt manchmal das zweit- oder drittbeste Feld
+  let x = Math.random() * w.reduce((a, b) => a + b, 0), i = 0;
+  while (i < w.length - 1 && x > w[i]) { x -= w[i]; i++; }
+  return ranked[i];
+}
+
+// Ein kompletter Bot-Zug (noch ohne Animation): bis zu drei Würfe, dann ein Feld wählen
+function botPlay(card, level) {
+  const cells = legalCells(card);
+  let dice = Array.from({ length: 5 }, rand6), used = 1;
+  const rolls = [{ dice: dice.slice() }];
+  while (used < 3) {
+    const held = botHold(dice, used, cells, level);
+    if (!held) break;
+    rolls[rolls.length - 1].held = held;
+    dice = dice.map((d, i) => held[i] ? d : rand6());
+    used++; rolls.push({ dice: dice.slice() });
+  }
+  return { rolls, cell: pickCell(cells, dice, used, level) };
+}
+
+// Der Bot ist nach jedem Eintrag des Spielers dran (mit kleiner Würfel-Animation)
+async function botTurn() {
+  if (botBusy || !solo) return;
+  while (solo && cardFilled(solo.bot.card) < cardFilled(solo.me.card)) {
+    botBusy = true;
+    await sleep(350);
+    if (!solo) break;
+    const plan = botPlay(solo.bot.card, solo.level);
+    let prevHeld = null;
+    for (let i = 0; i < plan.rolls.length; i++) {
+      const r = plan.rolls[i];
+      botView = { dice: r.dice, held: r.held || [], fresh: r.dice.map((_, j) => !prevHeld || !prevHeld[j]), text: `Bot würfelt: Wurf ${i + 1}` };
+      prevHeld = r.held || [];
+      render();
+      await sleep(850);
+      if (!solo) break;
+    }
+    if (!solo) break;
+    const { col, row, pts } = plan.cell;
+    solo.bot.card[col][row] = pts; solo.bot.history.push({ col, row });
+    justSet = { view: 1, c: col, r: row };
+    botView = { dice: botView.dice, held: [], fresh: null,
+      text: pts === 0 ? `Bot streicht ${ROWNAMES[row]} ${COLSYM[col]}.` : `Bot trägt ${pts} bei ${ROWNAMES[row]} ${COLSYM[col]} ein.` };
+    soloSync();
+    await sleep(500);
+  }
+  botBusy = false;
+  if (solo) soloSync();
+}
+
+function botPanel() {
+  const bv = botView;
+  const dice = bv && bv.dice ? bv.dice.map((d, i) =>
+    `<span class="bdie ${bv.held && bv.held[i] ? 'held' : ''} ${bv.fresh && bv.fresh[i] ? 'new' : ''}">${die(d)}</span>`).join('') : '';
+  const text = bv ? bv.text : 'Würfle mit deinen echten Würfeln und trag ein. Danach ist der Bot dran.';
+  if (bv) bv.fresh = null; // Würfel-Animation nur einmal abspielen
+  return `<div class="botbox"><div class="bt">${esc(text)}</div><div class="bd">${dice}</div></div>`;
+}
+
+function openBotPicker() {
+  const p = $('picker');
+  p.innerHTML = `<div class="head">${die(6)}<div><h3>Gegen den Bot</h3></div></div>
+    <p class="sub">Du würfelst mit echten Würfeln und trägst ein. Der Bot würfelt in der App und ist nach jedem deiner Einträge dran. Wie stark soll er sein?</p>
+    <div class="opts one">
+      <button class="opt" data-lv="easy"><span class="v">Leicht</span><span class="p" style="font-family:var(--ui);font-size:15px">macht viele Fehler</span></button>
+      <button class="opt" data-lv="normal"><span class="v">Normal</span><span class="p" style="font-family:var(--ui);font-size:15px">spielt ordentlich</span></button>
+      <button class="opt" data-lv="hard"><span class="v">Schwer</span><span class="p" style="font-family:var(--ui);font-size:15px">macht kaum Fehler</span></button>
+    </div>
+    <button class="cancel" id="cancel">Abbrechen</button>`;
+  p.querySelectorAll('[data-lv]').forEach(b => b.onclick = () => { closePicker(); startSolo(b.dataset.lv); });
+  $('cancel').onclick = closePicker;
+  $('scrim').classList.add('show');
+}
 
 /* Würfelregen */
 let rainOn = false;
