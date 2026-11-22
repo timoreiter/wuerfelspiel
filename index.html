@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f2d22">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Würfeln">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Würfeln</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Alfa+Slab+One&family=Barlow+Semi+Condensed:wght@500;600;700&family=Caveat:wght@600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --felt:#1b4636; --felt-hi:#26614b; --felt-deep:#0f2d22; --felt-line:#0a2018;
+    --paper:#f6f1e3; --paper-line:#d9d2bd; --ink:#1d2d8c; --ink-soft:#6a74b8;
+    --pip:#231d1a; --red:#b9342a; --brass:#d8ab46; --brass-deep:#8c6a1d; --ivory:#f4edda;
+    --display:"Alfa Slab One","Rockwell","Georgia",serif;
+    --ui:"Barlow Semi Condensed","Segoe UI",system-ui,sans-serif;
+    --pen:"Caveat","Segoe Print","Bradley Hand",cursive;
+  }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html { background:var(--felt-deep); }
+  body {
+    margin:0; min-height:100vh; font-family:var(--ui); font-size:17px; color:var(--ivory);
+    background:
+      radial-gradient(120% 80% at 50% 0%, var(--felt-hi) 0%, var(--felt) 45%, var(--felt-deep) 100%);
+    background-attachment:fixed;
+  }
+  body::before { /* Filzstruktur */
+    content:""; position:fixed; inset:0; pointer-events:none; opacity:.35; mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .55 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  }
+  .wrap { position:relative; max-width:480px; margin:0 auto; padding:max(14px, env(safe-area-inset-top)) 14px calc(28px + env(safe-area-inset-bottom)); }
+  button { font:inherit; cursor:pointer; }
+  :focus-visible { outline:3px solid var(--brass); outline-offset:2px; }
+
+  /* ---------- Kopfzeile ---------- */
+  .top { display:flex; align-items:center; justify-content:space-between; margin:4px 0 14px; }
+  .logo { font-family:var(--display); font-size:26px; letter-spacing:.5px; color:var(--ivory); display:flex; align-items:center; gap:10px; }
+  .logo svg { width:30px; height:30px; transform:rotate(-12deg); filter:drop-shadow(0 2px 0 rgba(0,0,0,.35)); }
+  .code { font-family:var(--display); font-size:15px; letter-spacing:3px; background:var(--felt-deep); color:var(--brass); border:2px solid var(--brass-deep); border-radius:8px; padding:6px 10px; }
+  .banner { background:var(--red); color:#fff; font-weight:600; padding:8px 12px; border-radius:8px; margin-bottom:12px; }
+
+  /* ---------- Buttons ---------- */
+  .btn { display:block; width:100%; padding:14px 18px; font-family:var(--display); font-size:19px; letter-spacing:.4px; color:#2a1f08; background:var(--brass); border:0; border-radius:12px; box-shadow:0 5px 0 var(--brass-deep), 0 10px 18px rgba(0,0,0,.35); transition:transform .08s, box-shadow .08s; }
+  .btn:active { transform:translateY(4px); box-shadow:0 1px 0 var(--brass-deep), 0 3px 8px rgba(0,0,0,.35); }
+  .btn:disabled { background:#6d7b6f; color:#2a3a2e; box-shadow:0 5px 0 #46524a; cursor:default; }
+  .btn.ghost { background:transparent; color:var(--ivory); border:2px solid rgba(244,237,218,.45); box-shadow:none; font-family:var(--ui); font-weight:700; font-size:17px; padding:11px 16px; }
+  .btn.ghost:active { transform:none; background:rgba(255,255,255,.08); }
+  .row { display:flex; gap:10px; }
+  .row > * { flex:1; }
+
+  /* ---------- Start / Beitreten ---------- */
+  .hero { text-align:center; padding:34px 0 22px; }
+  .hero h1 { font-family:var(--display); font-weight:400; font-size:64px; line-height:1; margin:0 0 6px; text-shadow:0 4px 0 var(--felt-line); }
+  .hero .dice-row { display:flex; justify-content:center; gap:10px; margin-bottom:18px; }
+  .hero .dice-row svg { width:46px; height:46px; filter:drop-shadow(0 5px 0 rgba(0,0,0,.35)); }
+  .hero .dice-row svg:nth-child(1){ transform:rotate(-14deg) translateY(4px);} .hero .dice-row svg:nth-child(2){ transform:rotate(8deg) translateY(-6px);} .hero .dice-row svg:nth-child(3){ transform:rotate(-5deg);} .hero .dice-row svg:nth-child(4){ transform:rotate(16deg) translateY(-3px);} .hero .dice-row svg:nth-child(5){ transform:rotate(-9deg) translateY(5px);}
+  .hero p { margin:0; color:rgba(244,237,218,.8); }
+  .slip { background:var(--paper); color:#222; border-radius:6px; padding:18px 18px 20px; box-shadow:0 12px 28px rgba(0,0,0,.45); position:relative; }
+  .slip label { display:block; font-weight:700; margin-bottom:4px; color:#444; }
+  /* Startseite: Name, Knopf mit Schalter, Statistik */
+  .gorow { display:flex; align-items:center; gap:14px; margin-bottom:14px; }
+  .gorow .btn { flex:1; width:auto; }
+  .slip label.sw.col { flex:none; width:112px; flex-direction:column; gap:6px; margin:0; text-align:center; font-size:15px; line-height:1.15; color:#444; }
+  .btn.paper { display:flex; align-items:center; justify-content:center; gap:10px; background:#f6f1e3; color:#444; border:2px solid #d9d2bd; box-shadow:0 4px 0 #bdb6a0; font-family:var(--ui); font-weight:700; font-size:22px; padding:12px 18px; }
+  .btn.paper:active { transform:translateY(3px); box-shadow:0 1px 0 #bdb6a0; }
+  .slip .btn.paper + .btn.paper { margin-top:12px; }
+  .botbox { background:rgba(0,0,0,.25); border-radius:14px; padding:10px 12px 12px; margin-bottom:12px; }
+  .botbox .bt { font-weight:600; font-size:15px; color:rgba(244,237,218,.92); min-height:1.3em; margin-bottom:8px; text-align:center; }
+  .botbox .bd { display:flex; gap:8px; justify-content:center; min-height:42px; }
+  .botbox .bdie { width:40px; height:40px; transition:transform .15s; }
+  .botbox .bdie svg { width:100%; height:100%; display:block; }
+  .botbox .bdie.held { transform:translateY(-6px); }
+  .botbox .bdie.held svg rect { stroke:#5fae6c; stroke-width:7; }
+  @keyframes roll { from { transform:rotate(-50deg) scale(.5); opacity:.2; } to { transform:none; opacity:1; } }
+  .botbox .bdie.new svg { animation:roll .35s ease-out; }
+  .btn.paper svg { width:26px; height:26px; stroke:currentColor; fill:none; stroke-width:2.8; stroke-linecap:round; }
+  .hello { margin-bottom:18px; }
+  .hello span { display:block; font-weight:700; color:#444; }
+  .hello b { display:block; font-family:var(--pen); font-weight:700; font-size:40px; line-height:1.1; color:var(--ink); border-bottom:2px solid var(--ink); padding:0 2px 2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .hello .lnk { background:none; border:0; padding:8px 0 0; color:#555; font-weight:600; font-size:15px; text-decoration:underline; }
+  .slip input { width:100%; font-family:var(--pen); font-weight:700; font-size:34px; color:var(--ink); background:transparent; border:0; border-bottom:2px solid var(--ink); padding:2px 2px 0; margin-bottom:18px; outline:none; border-radius:0; }
+  .slip input:focus { border-bottom-color:var(--red); }
+  .err { color:#ffb4a9; min-height:1.3em; margin:10px 2px 0; font-weight:600; }
+  .slip .err { color:var(--red); }
+
+  /* ---------- Warteraum ---------- */
+  .ticket { background:var(--paper); color:#222; border-radius:8px; padding:16px; box-shadow:0 12px 28px rgba(0,0,0,.45); margin-bottom:16px; position:relative; }
+  .ticket::before, .ticket::after { content:""; position:absolute; top:62px; width:18px; height:18px; border-radius:50%; background:var(--felt); box-shadow:inset 0 2px 4px rgba(0,0,0,.35); }
+  .ticket::before { left:-9px; } .ticket::after { right:-9px; }
+  .ticket h2 { margin:0 0 14px; font-family:var(--display); font-weight:400; font-size:22px; color:var(--ink); }
+  .ticket .big { font-family:var(--display); font-size:40px; letter-spacing:8px; text-align:center; color:var(--ink); padding:12px 0 16px; border-top:2px dashed var(--paper-line); border-bottom:2px dashed var(--paper-line); margin-bottom:14px; }
+  .ticket .btn.ghost { color:var(--ink); border-color:var(--ink); }
+  .ticket .btn.ghost:active { background:rgba(29,45,140,.08); }
+  .slip label.sw, label.sw { display:flex; align-items:center; gap:12px; margin:0 0 16px; cursor:pointer; font-weight:600; position:relative; }
+  label.sw input { position:absolute; opacity:0; width:0; height:0; margin:0; border:0; }
+  label.sw .tr { width:46px; height:28px; border-radius:20px; background:#c9c3ae; position:relative; flex:none; transition:background .15s; }
+  label.sw .tr::after { content:""; position:absolute; top:3px; left:3px; width:22px; height:22px; border-radius:50%; background:#fff; box-shadow:0 2px 0 rgba(0,0,0,.25); transition:transform .15s; }
+  label.sw input:checked + .tr { background:var(--ink); }
+  label.sw input:checked + .tr::after { transform:translateX(18px); }
+  label.sw input:focus-visible + .tr { outline:3px solid var(--brass); outline-offset:2px; }
+  label.sw small { display:block; font-weight:500; font-size:14px; opacity:.75; }
+  label.sw.dark { color:var(--ivory); } label.sw.dark .tr { background:rgba(0,0,0,.35); } label.sw.dark input:checked + .tr { background:var(--brass); }
+  .rooms { margin-top:26px; }
+  .rooms h2 { font-family:var(--display); font-weight:400; font-size:20px; margin:0 0 10px; }
+  .rm { width:100%; display:flex; align-items:center; gap:12px; padding:10px 14px 10px 10px; margin-bottom:10px; border-radius:14px; background:rgba(0,0,0,.25); border:2px solid rgba(244,237,218,.18); color:var(--ivory); text-align:left; }
+  .rm:active { background:rgba(255,255,255,.1); }
+  .rm .tok { flex:none; } .rm .tx { flex:1; min-width:0; }
+  .rm b { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:18px; }
+  .rm small { display:block; color:rgba(244,237,218,.7); font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .rm .cnt { font-family:var(--display); color:var(--brass); font-size:18px; flex:none; }
+  .rooms .none { color:rgba(244,237,218,.7); margin:0; }
+  .back { background:none; border:0; color:var(--ivory); font-weight:700; padding:12px 4px 0; opacity:.85; display:block; margin:0 auto; }
+  .seats { display:grid; grid-template-columns:repeat(3,1fr); gap:14px 8px; margin:6px 0 22px; }
+  .seat { text-align:center; }
+  .seat .tok { margin:0 auto 6px; }
+  .seat b { display:block; font-size:16px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .seat small { color:var(--brass); font-weight:600; }
+  .seat.empty .tok { background:transparent; border:2px dashed rgba(244,237,218,.35); box-shadow:none; color:transparent; }
+  .wait { text-align:center; color:rgba(244,237,218,.8); padding:6px 0 0; }
+  .hint { text-align:center; color:rgba(244,237,218,.75); font-size:15px; margin:10px 0 0; }
+
+  /* ---------- Spielermarken ---------- */
+  .tok { width:46px; height:46px; border-radius:50%; display:grid; place-items:center; font-family:var(--display); font-size:22px; color:#fff; background:var(--c,#b9342a); box-shadow:inset 0 -5px 0 rgba(0,0,0,.25), inset 0 3px 0 rgba(255,255,255,.25), 0 4px 0 rgba(0,0,0,.35); }
+  .players { display:flex; gap:10px; overflow-x:auto; padding:4px 2px 12px; margin:0 -2px 4px; scrollbar-width:none; }
+  .players::-webkit-scrollbar { display:none; }
+  .pl { flex:0 0 auto; display:flex; align-items:center; gap:9px; padding:6px 14px 6px 6px; border-radius:40px; background:rgba(0,0,0,.22); border:2px solid transparent; color:var(--ivory); text-align:left; }
+  .pl.on { background:var(--paper); color:#222; border-color:var(--brass); box-shadow:0 4px 0 rgba(0,0,0,.3); }
+  .pl.off { opacity:.5; }
+  .pl .tok { width:34px; height:34px; font-size:17px; box-shadow:inset 0 -3px 0 rgba(0,0,0,.25), inset 0 2px 0 rgba(255,255,255,.25); }
+  .pl b { display:block; font-size:15px; line-height:1.1; max-width:92px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .pl span { font-family:var(--display); font-size:17px; line-height:1.15; }
+  .pl small { font-size:12px; opacity:.65; margin-left:4px; font-family:var(--ui); font-weight:600; }
+
+  /* ---------- Zettel ---------- */
+  .pad { background:var(--paper); border-radius:4px 4px 10px 10px; padding:10px 10px 14px; box-shadow:0 14px 30px rgba(0,0,0,.5), 0 2px 0 #fff inset; position:relative; color:var(--ink); }
+  .pad::before { content:""; position:absolute; left:6px; right:6px; top:-7px; height:8px; background:#e9e3d0; border-radius:3px 3px 0 0; box-shadow:0 -4px 0 -1px #ddd6c0; }
+  .pad .who { font-family:var(--pen); font-size:24px; font-weight:700; padding:0 4px 2px; display:flex; justify-content:space-between; align-items:baseline; }
+  .pad .who small { font-family:var(--ui); font-size:13px; font-weight:600; color:#777; }
+  table.sheet { width:100%; border-collapse:collapse; table-layout:fixed; }
+  .sheet col.l { width:18%; }
+  .sheet td, .sheet th { padding:0; text-align:center; border-left:2px solid var(--ink); height:44px; position:relative; }
+  .sheet th { height:42px; border-bottom:2px solid var(--ink); }
+  .sheet th:first-child, .sheet td.lab { border-left:0; }
+  .sheet th svg { width:22px; height:22px; stroke:var(--ink); fill:none; stroke-width:2.6; stroke-linecap:round; stroke-linejoin:round; vertical-align:middle; }
+  .sheet th .s { font-family:var(--pen); font-weight:700; font-size:30px; line-height:1; }
+  .sheet tr.r td { border-bottom:1px solid var(--paper-line); }
+  .sheet tr.r.last td { border-bottom:2px solid var(--ink); }
+  .sheet td.lab { font-family:var(--pen); font-weight:700; font-size:24px; }
+  .sheet td.lab svg { width:26px; height:26px; display:block; margin:0 auto; }
+  .sheet td.cell { cursor:default; }
+  .sheet td .n { font-family:var(--pen); font-weight:700; font-size:30px; line-height:1; color:var(--ink); display:inline-block; }
+  .sheet td .n.zero { opacity:.9; }
+  .sheet td.avail { cursor:pointer; background:repeating-linear-gradient(135deg, rgba(216,171,70,.16) 0 6px, transparent 6px 12px); }
+  .sheet td.avail::after { content:""; position:absolute; inset:5px; border:2px dashed rgba(29,45,140,.28); border-radius:6px; pointer-events:none; }
+  .sheet td.avail:active { background-color:rgba(216,171,70,.4); }
+  @keyframes pen { 0% { transform:scale(1.9) rotate(-8deg); opacity:0; } 60% { transform:scale(.92); opacity:1; } 100% { transform:scale(1) rotate(0); } }
+  .sheet td .n.fresh { animation:pen .32s ease-out; }
+  .sheet tr.sub td { height:56px; background:rgba(29,45,140,.06); }
+  .sheet tr.sub td.lab { font-family:var(--ui); font-size:14px; font-weight:700; color:#555; }
+  .sheet tr.sub .n2 { display:block; font-family:var(--pen); font-weight:700; font-size:28px; line-height:1; color:var(--ink); }
+  .sheet tr.sub small { display:block; font-size:12px; font-weight:600; color:#666; line-height:1.1; margin-top:2px; }
+  .sheet tr.sub small.ok { color:#2f7a45; } .sheet tr.sub small.no { color:var(--red); }
+  .sheet tr.sum td { height:36px; font-family:var(--pen); font-weight:700; font-size:23px; }
+  .sheet tr.sum.first td { border-top:2px solid var(--ink); }
+  .sheet tr.sum td.lab { font-size:14px; font-family:var(--ui); font-weight:700; color:#555; }
+  .sheet tr.sum td.plus { color:var(--red); }
+  .total { display:flex; align-items:center; justify-content:space-between; margin-top:10px; padding:10px 14px 8px; background:var(--felt-deep); border-radius:10px; color:var(--ivory); }
+  .total span { font-weight:600; font-size:17px; color:rgba(244,237,218,.8); }
+  .total b { font-family:var(--display); font-weight:400; font-size:44px; line-height:1; color:var(--brass); display:inline-block; }
+  @keyframes bump { 40% { transform:scale(1.18); } }
+  .total b.bump { animation:bump .35s ease-out; }
+  .tools { display:flex; gap:10px; margin-top:16px; }
+  .note { text-align:center; margin:12px 0 0; font-size:15px; color:rgba(244,237,218,.8); }
+
+  /* ---------- Auswahl (Bottom Sheet) ---------- */
+  #scrim { position:fixed; inset:0; background:rgba(5,18,12,.62); display:none; align-items:flex-end; justify-content:center; z-index:20; }
+  #scrim.show { display:flex; }
+  @keyframes up { from { transform:translateY(40px); opacity:.4; } to { transform:none; opacity:1; } }
+  #picker { width:100%; max-width:480px; background:var(--paper); color:#222; border-radius:20px 20px 0 0; padding:18px 16px calc(18px + env(safe-area-inset-bottom)); animation:up .18s ease-out; box-shadow:0 -10px 30px rgba(0,0,0,.4); }
+  #picker .head { display:flex; align-items:center; gap:14px; margin-bottom:6px; }
+  #picker .head svg.die { width:52px; height:52px; flex:none; filter:drop-shadow(0 3px 0 rgba(0,0,0,.25)); }
+  #picker .head .tt { font-family:var(--display); font-size:11px; }
+  #picker h3 { margin:0; font-family:var(--display); font-weight:400; font-size:26px; color:var(--ink); line-height:1.1; }
+  #picker .sub { margin:0 0 14px; color:#555; font-weight:500; }
+  #picker .opts { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; }
+  #picker .opts.one { grid-template-columns:1fr; }
+  .opt { border:0; border-radius:12px; background:var(--ink); color:#fff; padding:12px 4px 10px; box-shadow:0 5px 0 #121c5e; transition:transform .07s, box-shadow .07s; }
+  .opt:active { transform:translateY(4px); box-shadow:0 1px 0 #121c5e; }
+  .opt .v { display:block; font-family:var(--display); font-size:30px; line-height:1.1; }
+  .opt .p { display:block; font-size:14px; font-weight:600; opacity:.85; }
+  .opts.one .opt { display:flex; align-items:center; justify-content:space-between; padding:14px 18px; text-align:left; }
+  .opts.one .opt .v { font-size:20px; } .opts.one .opt .p { font-size:18px; font-family:var(--display); }
+  .opt.strike { background:#fff; color:var(--red); box-shadow:0 5px 0 #e3b9b3; border:2px solid var(--red); }
+  .opt.strike:active { box-shadow:0 1px 0 #e3b9b3; }
+  .opts.one .opt.strike { padding:12px 16px; }
+  #picker .grp { font-weight:700; color:var(--ink); margin:2px 0 8px; font-size:16px; }
+  #picker .gr .opts + .grp { margin-top:14px; }
+  .opt.face { display:flex; flex-direction:column; align-items:center; gap:4px; padding:8px 4px 9px; }
+  .opt.face svg.die { width:34px; height:34px; filter:none; }
+  .opt.face .p { font-family:var(--display); font-size:19px; opacity:1; }
+  #picker .cancel { margin-top:14px; width:100%; border:0; background:transparent; color:#555; font-weight:700; padding:8px; }
+
+  /* ---------- Siegerehrung ---------- */
+  #win { position:fixed; inset:0; z-index:30; display:none; overflow-y:auto; background:radial-gradient(120% 80% at 50% 20%, var(--felt-hi), var(--felt-deep)); }
+  #win.show { display:block; animation:fade .4s ease-out; }
+  @keyframes fade { from { opacity:0; } to { opacity:1; } }
+  #rain { position:fixed; inset:0; z-index:0; pointer-events:none; }
+  .winin { position:relative; z-index:1; max-width:480px; margin:0 auto; padding:calc(26px + env(safe-area-inset-top)) 18px 30px; text-align:center; }
+  .crown { width:92px; height:70px; margin:0 auto 4px; display:block; filter:drop-shadow(0 5px 0 rgba(0,0,0,.35)); animation:drop .7s cubic-bezier(.2,1.4,.4,1) .9s both; }
+  @keyframes drop { from { transform:translateY(-70px) rotate(-14deg); opacity:0; } to { transform:none; opacity:1; } }
+  .winin h2 { font-family:var(--display); font-weight:400; font-size:44px; line-height:1.05; margin:0; text-shadow:0 4px 0 var(--felt-line); word-break:break-word; animation:fade .5s ease-out 1.1s both; }
+  .winin .sc { font-family:var(--display); font-size:22px; color:var(--brass); margin:6px 0 22px; animation:fade .5s ease-out 1.1s both; }
+  .podium { display:flex; align-items:flex-end; justify-content:center; gap:8px; height:210px; margin-bottom:22px; }
+  .pod { flex:1; max-width:130px; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; }
+  .pod .tok { margin-bottom:8px; animation:fade .4s ease-out .5s both; }
+  .pod .nm { font-weight:700; font-size:15px; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-bottom:5px; }
+  .pod .bar { width:100%; border-radius:8px 8px 0 0; background:linear-gradient(var(--brass), var(--brass-deep)); color:#2a1f08; font-family:var(--display); display:flex; flex-direction:column; align-items:center; padding-top:8px; transform-origin:bottom; animation:grow .7s cubic-bezier(.2,.9,.3,1) both; box-shadow:inset 0 3px 0 rgba(255,255,255,.35); }
+  .pod .bar b { font-weight:400; font-size:30px; line-height:1; } .pod .bar i { font-style:normal; font-size:18px; }
+  .pod.p1 .bar { height:150px; animation-delay:.35s; } .pod.p2 .bar { height:105px; filter:saturate(.35) brightness(1.1); animation-delay:.2s; } .pod.p3 .bar { height:74px; filter:hue-rotate(-18deg) saturate(.8) brightness(.9); animation-delay:.05s; }
+  @keyframes grow { from { transform:scaleY(0); } to { transform:scaleY(1); } }
+  .rest { list-style:none; padding:0; margin:0 0 20px; text-align:left; }
+  .rest li { display:flex; justify-content:space-between; padding:9px 4px; border-bottom:1px solid rgba(244,237,218,.18); }
+  .rest li b { font-family:var(--display); font-weight:400; }
+  .winin .btns { display:grid; gap:12px; }
+
+  /* ---------- Statistik ---------- */
+  .statbtn { display:inline-flex; align-items:center; gap:7px; background:rgba(0,0,0,.25); color:var(--ivory); border:2px solid rgba(244,237,218,.25); border-radius:20px; padding:6px 12px 6px 10px; font-weight:700; font-size:15px; }
+  .statbtn svg { width:18px; height:18px; stroke:currentColor; fill:none; stroke-width:2.6; stroke-linecap:round; }
+  .statbtn.abs { position:absolute; top:max(14px, env(safe-area-inset-top)); right:14px; z-index:2; }
+  .top .rt { display:flex; gap:8px; align-items:center; }
+  #stats { position:fixed; inset:0; z-index:40; display:none; overflow-y:auto; background:radial-gradient(120% 80% at 50% 0%, var(--felt-hi), var(--felt-deep)); }
+  #stats.show { display:block; animation:fade .25s ease-out; }
+  .statin { max-width:480px; margin:0 auto; padding:calc(18px + env(safe-area-inset-top)) 16px 36px; }
+  .sthead { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+  .sthead h2 { font-family:var(--display); font-weight:400; font-size:32px; margin:0; text-shadow:0 3px 0 var(--felt-line); }
+  .sthead button { background:none; border:2px solid rgba(244,237,218,.4); color:var(--ivory); border-radius:20px; padding:7px 14px; font-weight:700; }
+  .tiles { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .tile { background:var(--paper); color:var(--ink); border-radius:10px; padding:12px 14px 10px; box-shadow:0 6px 0 rgba(0,0,0,.25); }
+  .tile b { display:block; font-family:var(--pen); font-weight:700; font-size:44px; line-height:1; }
+  .tile span { font-weight:600; font-size:15px; color:#555; }
+  .tiles.m .tile b { font-size:34px; white-space:nowrap; }
+  .recap { color:rgba(244,237,218,.85); margin:14px 2px 24px; }
+  .stsec { font-family:var(--display); font-weight:400; font-size:20px; margin:0 0 10px; }
+  .vs { background:rgba(0,0,0,.25); border-radius:14px; padding:12px; margin-bottom:10px; }
+  .vs .l1 { display:flex; align-items:center; gap:12px; }
+  .vs .tok { width:38px; height:38px; font-size:19px; flex:none; }
+  .vs .nm { flex:1; min-width:0; }
+  .vs .nm b { display:block; font-size:18px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .vs .nm small { color:rgba(244,237,218,.7); font-size:14px; }
+  .vs .sc { font-family:var(--display); font-size:26px; color:var(--brass); flex:none; }
+  .bar3 { display:flex; height:10px; border-radius:6px; overflow:hidden; margin:10px 0 8px; background:rgba(255,255,255,.1); }
+  .bar3 i { display:block; height:100%; } .bar3 .w { background:#5fae6c; } .bar3 .d { background:#b9b39c; } .bar3 .l { background:var(--red); }
+  .vs .l3 { font-size:15px; color:rgba(244,237,218,.88); }
+  .vs .l4 { font-size:14px; color:rgba(244,237,218,.65); margin-top:2px; }
+  .stempty { background:rgba(0,0,0,.25); border-radius:14px; padding:18px; color:rgba(244,237,218,.85); }
+  .stfoot { margin-top:22px; text-align:center; color:rgba(244,237,218,.65); font-size:14px; }
+  .stfoot button { margin-top:12px; }
+
+  /* ---------- Geld-Modus ---------- */
+  .stake { background:rgba(0,0,0,.25); border-radius:14px; padding:14px; margin:0 0 18px; }
+  .stake h3 { margin:0 0 2px; font-family:var(--display); font-weight:400; font-size:18px; }
+  .stake p { margin:0 0 10px; font-size:14px; color:rgba(244,237,218,.72); }
+  .stake .step { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .stake .step button { width:54px; height:54px; border-radius:50%; border:0; background:var(--ivory); color:var(--felt-deep); font-size:30px; font-weight:700; box-shadow:0 4px 0 rgba(0,0,0,.35); }
+  .stake .step button:active { transform:translateY(3px); box-shadow:0 1px 0 rgba(0,0,0,.35); }
+  .stake .step button:disabled { opacity:.35; }
+  .stake .amt { font-family:var(--display); font-size:34px; color:var(--brass); text-align:center; flex:1; }
+  .stake .amt small { display:block; font-family:var(--ui); font-size:13px; color:rgba(244,237,218,.7); font-weight:600; }
+  .stake .chips { display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; }
+  .stake .chips button { flex:1; min-width:52px; padding:8px 4px; border-radius:20px; border:2px solid rgba(244,237,218,.35); background:none; color:var(--ivory); font-weight:700; font-size:15px; }
+  .stake .chips button.on { background:var(--brass); border-color:var(--brass); color:var(--felt-deep); }
+  .stake .show { font-family:var(--display); font-size:22px; color:var(--brass); }
+  .rm .stk { font-size:14px; font-weight:700; color:var(--ivory); background:rgba(0,0,0,.3); border-radius:12px; padding:3px 9px; flex:none; }
+  .stline { text-align:center; font-size:14px; color:var(--brass); font-weight:700; margin:-2px 0 8px; }
+  .settle { text-align:left; background:rgba(0,0,0,.3); border-radius:14px; padding:14px; margin:0 0 20px; }
+  .settle h3 { margin:0; font-family:var(--display); font-weight:400; font-size:20px; }
+  .settle .sl { font-size:14px; color:rgba(244,237,218,.7); margin-bottom:8px; }
+  .srow { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:9px 0; border-bottom:1px solid rgba(244,237,218,.15); }
+  .srow .who { min-width:0; } .srow .who b { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .srow .who small { color:rgba(244,237,218,.7); font-size:14px; }
+  .money { font-family:var(--display); font-size:20px; white-space:nowrap; }
+  .money.plus { color:#8fdc9a; } .money.minus { color:#ff9a8f; } .money.zero { color:rgba(244,237,218,.7); }
+  .snet { display:flex; justify-content:space-between; align-items:center; padding-top:11px; font-weight:700; }
+  .snet .money { font-size:26px; }
+  .seg { display:grid; grid-template-columns:1fr 1fr; gap:4px; background:rgba(0,0,0,.3); border-radius:14px; padding:4px; margin-bottom:16px; }
+  .seg button { border:0; border-radius:11px; background:none; color:var(--ivory); font-weight:700; font-size:17px; padding:10px; }
+  .seg button.on { background:var(--ivory); color:var(--felt-deep); }
+  .vs .money { font-size:26px; flex:none; }
+  .vs .pay { margin-top:10px; width:100%; padding:8px; font-size:15px; border-radius:20px; border:2px solid rgba(244,237,218,.35); background:none; color:var(--ivory); font-weight:700; }
+
+  @media (prefers-reduced-motion:reduce) {
+    *, *::before, *::after { animation-duration:.01ms !important; animation-delay:0ms !important; transition:none !important; }
+  }
+  @media (max-width:360px) { .hero h1 { font-size:52px; } .sheet td .n { font-size:27px; } }
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<div id="scrim"><div id="picker" role="dialog" aria-modal="true"></div></div>
+<div id="win"><canvas id="rain"></canvas><div class="winin" id="winin"></div></div>
+<div id="stats"><div class="statin" id="statin"></div></div>
+
+<script>
+const ROWS = ['1','2','3','4','5','6','Str','Fu','Po','Gr'];
+const ROWNAMES = ['Einser','Zweier','Dreier','Vierer','Fünfer','Sechser','Straße','Full House','Poker','Grande'];
+const COLNAMES = ['von oben nach unten','von unten nach oben','freie Reihenfolge','serviert, nur mit dem 1. Wurf'];
+const BASE = [20, 30, 40, 50];
+const COLORS = ['#b9342a','#c98a1e','#2f7f7a','#3b5ba5','#c4632a','#7a3b6b'];
+const PIPS = { 1:[4], 2:[0,8], 3:[0,4,8], 4:[0,2,6,8], 5:[0,2,4,6,8], 6:[0,2,3,5,6,8] };
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+// Würfel als SVG (Augen wie bei echten Würfeln, die Eins ist rot)
+function die(n) {
+  const pips = PIPS[n].map(i => {
+    const x = 25 + (i % 3) * 25, y = 25 + Math.floor(i / 3) * 25;
+    return `<circle cx="${x}" cy="${y}" r="${n === 1 ? 13 : 9}" fill="${n === 1 ? '#b9342a' : '#231d1a'}"/>`;
+  }).join('');
+  return `<svg class="die" viewBox="0 0 100 100" aria-hidden="true"><rect x="4" y="4" width="92" height="92" rx="19" fill="#f4edda" stroke="#cfc6ad" stroke-width="3"/>${pips}</svg>`;
+}
+const ARROWS = [
+  `<svg viewBox="0 0 24 24" aria-label="von oben nach unten"><path d="M12 3v17M5.5 13.5L12 20l6.5-6.5"/></svg>`,
+  `<svg viewBox="0 0 24 24" aria-label="von unten nach oben"><path d="M12 21V4M5.5 10.5L12 4l6.5 6.5"/></svg>`,
+  `<svg viewBox="0 0 24 24" aria-label="frei"><path d="M12 3v18M6 8.5L12 3l6 5.5M6 15.5L12 21l6-5.5"/></svg>`,
+  `<span class="s" aria-label="serviert">S</span>`
+];
+
+let ws, S = null, view = null;
+let error = '', fatal = false, closedWin = false, dropped = false;
+let justSet = null, lastTotal = {};
+const params = new URLSearchParams(location.search);
+let roomCode = (params.get('room') || '').toUpperCase();
+const store = () => { try { return JSON.parse(localStorage.getItem('wuerfel_' + roomCode) || 'null'); } catch { return null; } };
+
+// Name, den dieses Gerät beim ersten Mal angegeben hat
+const NAME_KEY = 'wuerfel_name';
+const getName = () => { try { return (localStorage.getItem(NAME_KEY) || '').trim(); } catch { return ''; } };
+const saveName = n => { try { localStorage.setItem(NAME_KEY, n); } catch {} };
+const forgetName = () => { try { localStorage.removeItem(NAME_KEY); } catch {} };
+let pendingName = '';
+
+let rooms = [];
+const startList = () => connect(() => send({ t: 'list' }));
+
+function connect(then) {
+  if (ws && ws.readyState === 1) { then(); return; }
+  ws = new WebSocket((location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host);
+  ws.onopen = then;
+  ws.onmessage = e => {
+    const m = JSON.parse(e.data);
+    if (m.t === 'welcome') {
+      if (pendingName) { saveName(pendingName); pendingName = ''; } // erst speichern, wenn der Name wirklich angenommen wurde
+      roomCode = m.room; dropped = false;
+      try { localStorage.setItem('wuerfel_' + m.room, JSON.stringify({ token: m.token })); } catch {}
+      history.replaceState(null, '', '?room=' + m.room);
+      error = '';
+    } else if (m.t === 'rooms') {
+      rooms = m.rooms; if (!S) fillRooms();
+    } else if (m.t === 'error') {
+      error = m.msg; if (m.fatal) fatal = true; render();
+    } else if (m.t === 'state') {
+      if (m.state === 'finished' && m.game) recordGame(m);
+      if (m.state !== 'finished') closedWin = false;
+      S = m;
+      if (view === null || view >= S.players.length) view = S.me;
+      render();
+    }
+  };
+  ws.onclose = () => {
+    if (fatal || solo) return; // Solo-Spiel braucht keine Verbindung
+    if (!S && !roomCode) { setTimeout(startList, 2000); return; } // Startseite: Liste neu holen
+    dropped = true; render();
+    setTimeout(() => { if (roomCode && store()) connect(() => send({ t: 'join', room: roomCode, token: store().token })); }, 1500);
+  };
+}
+// Im Solo-Modus gehen die Nachrichten an den "lokalen Server" im Browser statt ans Netz
+const send = o => {
+  if (solo) return soloHandle(o);
+  return ws && ws.readyState === 1 && ws.send(JSON.stringify(o));
+};
+
+// Start erst, wenn das ganze Skript geladen ist
+window.addEventListener('DOMContentLoaded', () => {
+  const resume = loadSolo();
+  if (resume) { solo = resume; view = 0; soloSync(); botTurn(); return; } // angefangenes Solo-Spiel fortsetzen
+  if (roomCode && store()) connect(() => send({ t: 'join', room: roomCode, token: store().token }));
+  else { render(); if (!roomCode) startList(); }
+});
+
+function canPlace(card, col, row) {
+  if (card[col][row] !== null) return false;
+  if (col === 0) return card[0].findIndex(v => v === null) === row;
+  if (col === 1) return card[1].lastIndexOf(null) === row;
+  return true;
+}
+
+const logo = `<div class="logo">${die(5)}<span>Würfeln</span></div>`;
+const STAT_BTN = `<button class="statbtn" data-stats><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V11M12 20V4M19 20V14"/></svg>Statistik</button>`;
+const topbar = () => `<div class="top">${logo}<div class="rt">${STAT_BTN}${S ? `<div class="code" title="Raumcode">${esc(S.room)}</div>` : ''}</div></div>${dropped && !solo ? '<div class="banner">Verbindung weg. Ich versuche es neu …</div>' : ''}`;
+
+function render() {
+  const app = $('app');
+  if (!S) return renderEntry(app);
+  if (S.state === 'lobby') { hideWinner(); return renderLobby(app); }
+  renderGame(app);
+}
+
+/* ---------- Einstieg ---------- */
+function renderEntry(app) {
+  const joining = !!roomCode;
+  const saved = getName();
+  app.innerHTML = `
+    <div class="hero">
+      <div class="dice-row">${[1,5,3,6,2].map(die).join('')}</div>
+      <h1>Würfeln</h1>
+      ${joining ? '<p>Du setzt dich gleich an den Tisch.</p>' : ''}
+    </div>
+    <div class="slip">
+      <label for="name">Spieler</label>
+      <input id="name" maxlength="16" autocomplete="off" autocapitalize="words" enterkeyhint="go" value="${esc(saved)}">
+      <div class="gorow">
+        <button class="btn" id="go">${joining ? 'An den Tisch setzen' : 'Runde eröffnen'}</button>
+        ${joining ? '' : `<label class="sw col"><input type="checkbox" id="pub"><span class="tr"></span><span>Tisch für alle sichtbar</span></label>`}
+      </div>
+      ${joining ? '' : '<button class="btn paper" id="solo"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="8" width="16" height="11" rx="3"/><path d="M12 8V4M9 13.5h.01M15 13.5h.01M9 16.5h6"/></svg>Gegen Bot spielen</button>'}
+      <button class="btn paper" data-stats><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V11M12 20V4M19 20V14"/></svg>Statistik</button>
+      <div class="err" role="alert">${esc(error)}</div>
+    </div>
+    ${joining ? `<p class="hint">Raum ${esc(roomCode)}</p><button class="back" id="back">Zurück zu den offenen Tischen</button>` : '<div class="rooms" id="rooms"></div>'}`;
+  const go = () => {
+    const name = $('name').value.trim();
+    if (!name) { error = 'Schreib zuerst deinen Namen auf.'; return renderEntry(app); }
+    error = ''; fatal = false; pendingName = name;
+    const pub = !joining && $('pub').checked;
+    connect(() => send(joining ? { t: 'join', room: roomCode, name } : { t: 'create', name, public: pub }));
+  };
+  $('go').onclick = go;
+  $('name').onkeydown = e => { if (e.key === 'Enter') go(); };
+  const sb = $('solo');
+  if (sb) sb.onclick = openBotPicker;
+  const back = $('back');
+  if (back) back.onclick = () => { roomCode = ''; error = ''; history.replaceState(null, '', location.pathname); renderEntry(app); startList(); };
+  if (!joining) fillRooms();
+}
+
+// Liste der offenen Tische (aktualisiert sich live, ohne das Namensfeld anzufassen)
+function fillRooms() {
+  const el = $('rooms');
+  if (!el) return;
+  el.innerHTML = '<h2>Offene Tische</h2>' + (rooms.length
+    ? rooms.map(r => `<button class="rm" data-code="${esc(r.code)}">
+        <div class="tok" style="--c:${COLORS[0]}">${esc(r.host[0].toUpperCase())}</div>
+        <div class="tx"><b>${esc(r.host)}</b><small>${esc(r.names.join(', '))}</small></div>
+        ${r.stake ? `<span class="stk">${eur(r.stake)} / Pkt</span>` : ''}<span class="cnt">${r.count}/${r.max}</span></button>`).join('')
+    : '<p class="none">Gerade ist kein Tisch offen. Eröffne einen und schalte ihn sichtbar.</p>');
+  el.querySelectorAll('.rm').forEach(b => b.onclick = () => {
+    const name = $('name') ? $('name').value : '';
+    roomCode = b.dataset.code; error = ''; fatal = false;
+    renderEntry($('app'));
+    if ($('name')) { $('name').value = name; if (!name) $('name').focus(); }
+  });
+}
+
+/* ---------- Warteraum ---------- */
+function renderLobby(app) {
+  const link = location.origin + '/?room=' + S.room;
+  const isHost = S.me === 0;
+  const seats = [];
+  for (let i = 0; i < 6; i++) {
+    const p = S.players[i];
+    seats.push(p
+      ? `<div class="seat"><div class="tok" style="--c:${COLORS[i]}">${esc(p.name[0].toUpperCase())}</div><b>${esc(p.name)}</b>${p.host ? '<small>Gastgeber</small>' : ''}</div>`
+      : `<div class="seat empty"><div class="tok">?</div></div>`);
+  }
+  app.innerHTML = `${topbar()}
+    <div class="ticket">
+      <h2>Warteraum</h2>
+      <div class="big">${esc(S.room)}</div>
+      <div class="row">
+        <button class="btn ghost" id="copy">Link kopieren</button>
+        ${navigator.share ? '<button class="btn ghost" id="share">Teilen</button>' : ''}
+      </div>
+    </div>
+    ${isHost ? `<label class="sw dark"><input type="checkbox" id="publ" ${S.public ? 'checked' : ''}><span class="tr"></span><span>Tisch für alle sichtbar<small>Erscheint unter „Offene Tische“.</small></span></label>` : ''}
+    <div class="stake"><h3>Geld-Modus</h3>${isHost ? `
+      <p>Betrag pro Punkt Unterschied in der Gesamtpunktzahl.</p>
+      <div class="step"><button id="stm" aria-label="Weniger" ${S.stake <= 0 ? 'disabled' : ''}>−</button>
+        <div class="amt">${S.stake ? eur(S.stake) : 'Aus'}<small>${S.stake ? 'pro Punkt' : 'Spiel ohne Geld'}</small></div>
+        <button id="stp" aria-label="Mehr" ${S.stake >= 200 ? 'disabled' : ''}>+</button></div>
+      <div class="chips">${[0, 10, 20, 50, 100, 200].map(c => `<button data-stake="${c}" class="${S.stake === c ? 'on' : ''}">${c ? eur(c) : 'Aus'}</button>`).join('')}</div>`
+      : `<p style="margin:4px 0 0">${S.stake ? `<span class="show">${eur(S.stake)}</span> pro Punkt Unterschied.` : 'Dieses Spiel läuft ohne Geld.'}</p>`}</div>
+    <div class="seats">${seats.join('')}</div>
+    ${isHost
+      ? `<button class="btn" id="start" ${S.players.length < 2 ? 'disabled' : ''}>Spiel starten</button>
+         ${S.players.length < 2 ? '<p class="hint">Es braucht mindestens zwei Spieler.</p>' : ''}`
+      : '<p class="wait">Der Gastgeber startet gleich das Spiel.</p>'}
+    <button class="btn ghost" data-leave style="margin-top:14px">Zurück zum Start</button>
+    <div class="err" role="alert">${esc(error)}</div>`;
+  $('copy').onclick = async e => {
+    try { await navigator.clipboard.writeText(link); e.target.textContent = 'Kopiert'; }
+    catch { prompt('Link zum Kopieren:', link); }
+  };
+  const sh = $('share');
+  if (sh) sh.onclick = () => navigator.share({ title: 'Würfeln', text: 'Setz dich an meinen Tisch:', url: link }).catch(() => {});
+  const st = $('start');
+  if (st) st.onclick = () => send({ t: 'start' });
+  const setStake = v => send({ t: 'stake', value: Math.max(0, Math.min(200, v)) });
+  if ($('stm')) $('stm').onclick = () => setStake(S.stake - 10);
+  if ($('stp')) $('stp').onclick = () => setStake(S.stake + 10);
+  document.querySelectorAll('[data-stake]').forEach(b => b.onclick = () => setStake(+b.dataset.stake));
+  const pl = $('publ');
+  if (pl) pl.onchange = () => send({ t: 'visibility', value: pl.checked });
+}
+
+/* ---------- Spiel ---------- */
+// Zwischensumme der Zeilen 1-6 pro Spalte und was bis zu den 60 Punkten fehlt
+function subRow(v) {
+  let h = '<tr class="r last sub"><td class="lab small">Σ 1–6</td>';
+  for (let c = 0; c < 4; c++) {
+    let up = 0, rest = 0;
+    for (let r = 0; r < 6; r++) { const x = v.card[c][r]; if (x === null) rest += 5 * (r + 1); else up += x; }
+    const note = up >= 60 ? '<small class="ok">Bonus</small>'
+      : up + rest < 60 ? '<small class="no">verpasst</small>'
+      : `<small>noch ${60 - up}</small>`;
+    h += `<td><span class="n2">${up}</span>${note}</td>`;
+  }
+  return h + '</tr>';
+}
+
+function renderGame(app) {
+  const v = S.players[view];
+  const mine = view === S.me;
+  const playing = S.state === 'playing';
+
+  const chips = S.players.map((p, i) => `
+    <button class="pl ${i === view ? 'on' : ''} ${p.connected ? '' : 'off'}" data-i="${i}" aria-pressed="${i === view}">
+      <div class="tok" style="--c:${COLORS[i]}">${esc(p.name[0].toUpperCase())}</div>
+      <div><b>${esc(p.name)}</b><span>${p.total}</span><small>${p.filled}/40</small></div>
+    </button>`).join('');
+
+  let tbl = '<table class="sheet"><colgroup><col class="l"><col><col><col><col></colgroup><tr><th></th>' + ARROWS.map(a => `<th>${a}</th>`).join('') + '</tr>';
+  ROWS.forEach((label, r) => {
+    tbl += `<tr class="r ${r === 9 ? 'last' : ''}"><td class="lab">${r < 6 ? die(r + 1) : label}</td>`;
+    for (let c = 0; c < 4; c++) {
+      const val = v.card[c][r];
+      const avail = mine && playing && !botBusy && val === null && canPlace(v.card, c, r);
+      const fresh = justSet && justSet.view === view && justSet.c === c && justSet.r === r;
+      tbl += `<td class="cell ${avail ? 'avail' : ''}" data-c="${c}" data-r="${r}"${avail ? ' role="button" tabindex="0" aria-label="' + ROWNAMES[r] + ' eintragen"' : ''}>${val === null ? '' : `<span class="n ${val === 0 ? 'zero' : ''} ${fresh ? 'fresh' : ''}">${val === 0 ? '✕' : val}</span>`}</td>`;
+    }
+    tbl += '</tr>';
+    if (r === 5) tbl += subRow(v);
+  });
+  tbl += `<tr class="sum first"><td class="lab">Bonus</td>${v.bonus.map(b => `<td class="${b ? 'plus' : ''}">${b ? '+' + b : ''}</td>`).join('')}</tr>`;
+  tbl += `<tr class="sum"><td class="lab">Summe</td>${v.cols.map((s, i) => `<td>${s + v.bonus[i]}</td>`).join('')}</tr></table>`;
+  justSet = null;
+
+  const bump = lastTotal[view] !== undefined && lastTotal[view] !== v.total;
+  lastTotal[view] = v.total;
+
+  app.innerHTML = `${topbar()}
+    <div class="players">${chips}</div>
+    ${S.stake ? `<div class="stline">Einsatz: ${eur(S.stake)} pro Punkt</div>` : ''}
+    ${solo ? botPanel() : ''}
+    <div class="pad">
+      <div class="who"><span>${esc(v.name)}</span>${mine ? '' : '<small>nur ansehen</small>'}</div>
+      ${tbl}
+      <div class="total"><span>Gesamt</span><b class="${bump ? 'bump' : ''}">${v.total}</b></div>
+    </div>
+    ${mine && playing && !botBusy ? '<p class="note">Tippe auf ein schraffiertes Feld und trag ein, was du gewürfelt hast.</p>' : ''}
+    <div class="tools">
+      ${mine && v.canUndo ? '<button class="btn ghost" id="undo">Letzten Eintrag löschen</button>' : ''}
+      ${solo && playing ? '<button class="btn ghost" data-leave>Solo beenden</button>' : ''}
+      ${S.state === 'finished' ? '<button class="btn ghost" id="res">Ergebnis</button>' : ''}
+    </div>
+    ${S.state === 'finished' ? `<div style="margin-top:16px">${settleHtml()}</div>` : ''}
+    ${S.state === 'finished' && S.me === 0 ? '<div style="margin-top:14px"><button class="btn" id="again">Neue Runde</button></div>' : ''}
+    ${S.state === 'finished' ? '<div style="margin-top:12px"><button class="btn ghost" data-leave>Zurück zum Start</button></div>' : ''}
+    <div class="err" role="alert">${esc(error)}</div>`;
+
+  document.querySelectorAll('.pl').forEach(el => el.onclick = () => { view = +el.dataset.i; render(); });
+  const open = td => openPicker(+td.dataset.c, +td.dataset.r);
+  document.querySelectorAll('td.avail').forEach(td => {
+    td.onclick = () => open(td);
+    td.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(td); } };
+  });
+  const undo = $('undo'); if (undo) undo.onclick = () => send({ t: 'undo' });
+  const res = $('res'); if (res) res.onclick = () => { closedWin = false; showWinner(); };
+  const again = $('again'); if (again) again.onclick = () => { closedWin = false; hideWinner(); send({ t: 'again' }); };
+
+  if (S.state === 'finished' && !closedWin) showWinner();
+  else if (S.state !== 'finished') hideWinner();
+}
+
+/* ---------- Eintragen ---------- */
+function openPicker(col, row) {
+  const p = $('picker');
+  let opts = '', cls = '', head;
+  if (row <= 5) {
+    const f = row + 1;
+    head = die(f);
+    opts = [0,1,2,3,4,5].map(n => `<button class="opt ${n === 0 ? 'strike' : ''}" data-v="${n * f}"><span class="v">${n}×</span><span class="p">${n === 0 ? 'streichen' : n * f + ' Punkte'}</span></button>`).join('');
+  } else if (row === 9) {
+    // Grande: Zahl der fünf gleichen Würfel zählt mit
+    head = `<svg class="die" viewBox="0 0 100 100"><rect x="4" y="4" width="92" height="92" rx="19" fill="#1d2d8c"/><text x="50" y="64" text-anchor="middle" font-family="Alfa Slab One,serif" font-size="40" fill="#fff">Gr</text></svg>`;
+    const grid = base => [1,2,3,4,5,6].map(n => `<button class="opt face" data-v="${base + n}">${die(n)}<span class="p">${base + n}</span></button>`).join('');
+    cls = 'grande';
+    opts = (col !== 3 ? `<div class="grp">Mit fünf gleichen Würfeln</div><div class="opts">${grid(50)}</div>` : '')
+      + `<div class="grp">${col === 3 ? 'Serviert, in einem Wurf' : 'Serviert, in einem Wurf (1. Wurf)'}</div><div class="opts">${grid(100)}</div>`
+      + `<div class="opts one" style="margin-top:12px"><button class="opt strike" data-v="0"><span class="v">Streichen</span><span class="p">0</span></button></div>`;
+  } else {
+    const b = BASE[row - 6];
+    cls = 'one';
+    head = `<svg class="die" viewBox="0 0 100 100"><rect x="4" y="4" width="92" height="92" rx="19" fill="#1d2d8c"/><text x="50" y="64" text-anchor="middle" font-family="Alfa Slab One,serif" font-size="40" fill="#fff">${ROWS[row]}</text></svg>`;
+    if (col !== 3) opts += `<button class="opt" data-v="${b}"><span class="v">Geschafft</span><span class="p">${b}</span></button>`;
+    opts += `<button class="opt" data-v="${b + 5}"><span class="v">${col === 3 ? 'Serviert geschafft' : 'Mit dem 1. Wurf'}</span><span class="p">${b + 5}</span></button>`;
+    opts += `<button class="opt strike" data-v="0"><span class="v">Streichen</span><span class="p">0</span></button>`;
+  }
+  p.innerHTML = `<div class="head">${head}<div><h3>${ROWNAMES[row]}</h3></div></div>
+    <p class="sub">${row <= 5 ? `Wie viele Würfel zeigen die ${row + 1}?` : 'Was ist dir gelungen?'} Spalte: ${COLNAMES[col]}.</p>
+    ${cls === 'grande' ? `<div class="gr">${opts}</div>` : `<div class="opts ${cls}">${opts}</div>`}
+    <button class="cancel" id="cancel">Abbrechen</button>`;
+  p.querySelectorAll('[data-v]').forEach(b => b.onclick = () => {
+    justSet = { view, c: col, r: row };
+    if (navigator.vibrate) navigator.vibrate(12);
+    send({ t: 'set', col, row, value: +b.dataset.v });
+    closePicker();
+  });
+  $('cancel').onclick = closePicker;
+  $('scrim').classList.add('show');
+}
+function closePicker() { $('scrim').classList.remove('show'); }
+$('scrim').addEventListener('click', e => { if (e.target.id === 'scrim') closePicker(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closePicker(); });
+
+/* ---------- Siegerehrung ---------- */
+const crown = `<svg class="crown" viewBox="0 0 92 70" aria-hidden="true"><path d="M6 58 L2 14 L26 34 L46 6 L66 34 L90 14 L86 58 Z" fill="#d8ab46" stroke="#8c6a1d" stroke-width="4" stroke-linejoin="round"/><rect x="6" y="58" width="80" height="9" rx="3" fill="#8c6a1d"/><circle cx="2" cy="14" r="5" fill="#b9342a"/><circle cx="46" cy="6" r="5" fill="#b9342a"/><circle cx="90" cy="14" r="5" fill="#b9342a"/></svg>`;
+
+// Abrechnung: jeder Spieler gegen jeden, Differenz der Gesamtpunkte mal Einsatz
+function settleHtml() {
+  if (!S.stake || S.players.length < 2) return '';
+  const me = S.players[S.me];
+  let net = 0;
+  const rows = S.players.map((p, i) => {
+    if (i === S.me) return '';
+    const diff = me.total - p.total, d = diff * S.stake;
+    net += d;
+    const txt = d > 0 ? `${esc(p.name)} zahlt dir` : d < 0 ? `Du zahlst ${esc(p.name)}` : 'quitt';
+    return `<div class="srow"><div class="who"><b>${esc(p.name)}</b><small>${diff === 0 ? 'gleich viele Punkte' : plural(Math.abs(diff), 'Punkt', 'Punkte') + ' Unterschied'}, ${txt}</small></div><div class="money ${mcls(d)}">${seur(d)}</div></div>`;
+  }).join('');
+  return `<div class="settle"><h3>Abrechnung</h3><div class="sl">${eur(S.stake)} pro Punkt Unterschied</div>${rows}
+    <div class="snet"><span>Du insgesamt</span><span class="money ${mcls(net)}">${seur(net)}</span></div></div>`;
+}
+
+function showWinner() {
+  const list = S.players.map((p, i) => ({ name: p.name, total: p.total, i })).sort((a, b) => b.total - a.total);
+  const best = list[0].total;
+  const winners = list.filter(p => p.total === best);
+  const top = list.slice(0, 3);
+  const order = top.length === 3 ? [top[1], top[0], top[2]] : top.length === 2 ? [top[1], top[0]] : top;
+  const place = p => (p.total === best ? 1 : p === top[1] ? 2 : 3);
+  const pod = order.map(p => {
+    const k = p.total === best ? 1 : (p === top[1] ? 2 : 3);
+    return `<div class="pod p${k}"><div class="tok" style="--c:${COLORS[p.i]}">${esc(p.name[0].toUpperCase())}</div><div class="nm">${esc(p.name)}</div><div class="bar"><i>${k}.</i><b data-to="${p.total}">0</b></div></div>`;
+  }).join('');
+  const rest = list.slice(3).map(p => `<li><span>${esc(p.name)}</span><b>${p.total}</b></li>`).join('');
+  $('winin').innerHTML = `${crown}
+    <h2>${winners.map(w => esc(w.name)).join(' und ')}</h2>
+    <div class="sc">${winners.length > 1 ? 'teilen sich den Sieg mit' : 'gewinnt mit'} ${best} Punkten</div>
+    <div class="podium">${pod}</div>
+    ${rest ? `<ul class="rest">${rest}</ul>` : ''}
+    ${settleHtml()}
+    <div class="btns">
+      ${S.me === 0 ? '<button class="btn" id="again2">Neue Runde</button>' : ''}
+      <button class="btn ghost" data-stats>Statistik</button>
+      <button class="btn ghost" id="closew">Zettel ansehen</button>
+      <button class="btn ghost" data-leave>Zurück zum Start</button>
+    </div>`;
+  $('win').classList.add('show');
+  $('closew').onclick = () => { closedWin = true; hideWinner(); };
+  const a2 = $('again2'); if (a2) a2.onclick = () => { closedWin = false; hideWinner(); send({ t: 'again' }); };
+  // Punkte hochzählen
+  document.querySelectorAll('.bar b[data-to]').forEach(el => {
+    const to = +el.dataset.to, t0 = performance.now() + 500, dur = 1100;
+    (function tick(t) {
+      const k = Math.max(0, Math.min(1, (t - t0) / dur));
+      el.textContent = Math.round(to * (1 - Math.pow(1 - k, 3)));
+      if (k < 1) requestAnimationFrame(tick);
+    })(performance.now());
+  });
+  startRain();
+}
+function hideWinner() { $('win').classList.remove('show'); stopRain(); }
+
+/* ---------- Statistik (wird nur auf diesem Gerät gespeichert) ---------- */
+const STAT_KEY = 'wuerfel_stats_v1';
+// Geld in Cent: Anzeige im Format 0,50 € und mit Vorzeichen
+const eur = c => (c / 100).toLocaleString('de-AT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+const seur = c => (c > 0 ? '+' : c < 0 ? '−' : '') + eur(Math.abs(c));
+const mcls = c => (c > 0 ? 'plus' : c < 0 ? 'minus' : 'zero');
+const loadStats = () => { try { return JSON.parse(localStorage.getItem(STAT_KEY)) || { games: [], pay: [] }; } catch { return { games: [], pay: [] }; } };
+const saveStats = s => { try { localStorage.setItem(STAT_KEY, JSON.stringify(s)); } catch {} };
+
+// Jedes fertige Spiel wird genau einmal gespeichert (die Spiel-Nummer verhindert Doppelzählung)
+function recordGame(m) {
+  const st = loadStats();
+  if (st.games.some(g => g.id === m.game)) return;
+  const me = m.players[m.me];
+  st.games.push({ id: m.game, t: Date.now(), i: m.me, score: me.total, k: m.stake || 0, players: m.players.map(p => ({ n: p.name, s: p.total })) });
+  if (st.games.length > 2000) st.games.shift();
+  saveStats(st);
+}
+
+function aggregate() {
+  const stored = loadStats(), games = stored.games, pay = stored.pay || [];
+  const r = { n: games.length, w: 0, d: 0, l: 0, sum: 0, best: 0, opp: [], cash: 0, mg: 0, bestNet: null, worstNet: null };
+  const opp = {};
+  games.forEach(g => {
+    const top = Math.max(...g.players.map(p => p.s));
+    r.sum += g.score; r.best = Math.max(r.best, g.score);
+    if (g.score === top) (g.players.filter(p => p.s === top).length > 1 ? r.d++ : r.w++); else r.l++;
+    const k = g.k || 0;
+    let net = 0;
+    g.players.forEach((p, idx) => {
+      if (idx === g.i) return;
+      const o = opp[p.n.toLowerCase()] || (opp[p.n.toLowerCase()] = { name: p.n, n: 0, w: 0, d: 0, l: 0, mine: 0, theirs: 0, cash: 0, mg: 0 });
+      o.name = p.n; o.n++; o.mine += g.score; o.theirs += p.s;
+      if (g.score > p.s) o.w++; else if (g.score === p.s) o.d++; else o.l++;
+      if (k) { const d = (g.score - p.s) * k; o.cash += d; o.mg++; net += d; }
+    });
+    if (k) {
+      r.mg++; r.cash += net;
+      r.bestNet = r.bestNet === null ? net : Math.max(r.bestNet, net);
+      r.worstNet = r.worstNet === null ? net : Math.min(r.worstNet, net);
+    }
+  });
+  pay.forEach(x => { const o = opp[x.n.toLowerCase()]; if (o) { o.cash += x.c; r.cash += x.c; } });
+  r.opp = Object.values(opp).sort((a, b) => b.n - a.n || a.name.localeCompare(b.name));
+  r.money = r.opp.filter(o => o.mg).sort((a, b) => Math.abs(b.cash) - Math.abs(a.cash) || a.name.localeCompare(b.name));
+  return r;
+}
+
+const fmt = x => Number(x).toLocaleString('de-AT', { maximumFractionDigits: 1 });
+const nameColor = n => COLORS[[...n.toLowerCase()].reduce((a, c) => a + c.charCodeAt(0), 0) % COLORS.length];
+const plural = (n, a, b) => n + ' ' + (n === 1 ? a : b);
+
+let statTab = 'games';
+function moneyBody(a) {
+  if (!a.mg) return `<div class="stempty">Noch keine Spiele um Geld. Stelle im Warteraum einen Einsatz pro Punkt ein, dann erscheint hier, wie du gegen jeden Mitspieler stehst.</div>`;
+  return `<div class="tiles m">
+      <div class="tile"><b>${seur(a.cash)}</b><span>Bilanz offen</span></div>
+      <div class="tile"><b>${a.mg}</b><span>${a.mg === 1 ? 'Spiel um Geld' : 'Spiele um Geld'}</span></div>
+      <div class="tile"><b>${seur(a.bestNet)}</b><span>Bestes Spiel</span></div>
+      <div class="tile"><b>${seur(a.worstNet)}</b><span>Schlechtestes Spiel</span></div>
+    </div>
+    <h3 class="stsec" style="margin-top:24px">Gegen andere Spieler</h3>
+    ${a.money.map(o => `<div class="vs">
+      <div class="l1"><div class="tok" style="--c:${nameColor(o.name)}">${esc(o.name[0].toUpperCase())}</div>
+        <div class="nm"><b>${esc(o.name)}</b><small>${plural(o.mg, 'Spiel', 'Spiele')} um Geld</small></div>
+        <div class="money ${mcls(o.cash)}">${seur(o.cash)}</div></div>
+      <div class="l3" style="margin-top:8px">${o.cash > 0 ? `${esc(o.name)} schuldet dir ${eur(o.cash)}.` : o.cash < 0 ? `Du schuldest ${esc(o.name)} ${eur(-o.cash)}.` : 'Ihr seid quitt.'}</div>
+      ${o.cash ? `<button class="pay" data-pay="${esc(o.name.toLowerCase())}">${o.cash > 0 ? 'Erhalten' : 'Bezahlt'}, Bilanz auf 0 setzen</button>` : ''}
+    </div>`).join('')}`;
+}
+function openStats() {
+  const a = aggregate();
+  let body;
+  if (statTab === 'money') body = moneyBody(a);
+  else if (!a.n) {
+    body = `<div class="stempty">Noch keine Spiele gespeichert. Sobald ein Spiel fertig ist, erscheinen hier deine Siege, Niederlagen und Durchschnittspunkte.</div>`;
+  } else {
+    body = `<div class="tiles">
+        <div class="tile"><b>${a.n}</b><span>${a.n === 1 ? 'Spiel' : 'Spiele'}</span></div>
+        <div class="tile"><b>${a.w}</b><span>${a.w === 1 ? 'Sieg' : 'Siege'}</span></div>
+        <div class="tile"><b>${fmt(a.sum / a.n)}</b><span>Ø Punkte pro Spiel</span></div>
+        <div class="tile"><b>${a.best}</b><span>Bestes Spiel</span></div>
+      </div>
+      <p class="recap">${plural(a.w, 'Sieg', 'Siege')}, ${plural(a.d, 'Unentschieden', 'Unentschieden')}, ${plural(a.l, 'Niederlage', 'Niederlagen')}.</p>
+      <h3 class="stsec">Gegen andere Spieler</h3>
+      ${a.opp.map(o => `<div class="vs">
+        <div class="l1"><div class="tok" style="--c:${nameColor(o.name)}">${esc(o.name[0].toUpperCase())}</div>
+          <div class="nm"><b>${esc(o.name)}</b><small>${plural(o.n, 'Spiel', 'Spiele')}</small></div>
+          <div class="sc" title="Siege zu Niederlagen">${o.w}:${o.l}</div></div>
+        <div class="bar3" aria-hidden="true"><i class="w" style="width:${o.w / o.n * 100}%"></i><i class="d" style="width:${o.d / o.n * 100}%"></i><i class="l" style="width:${o.l / o.n * 100}%"></i></div>
+        <div class="l3">${plural(o.w, 'Sieg', 'Siege')}, ${o.d} unentschieden, ${plural(o.l, 'Niederlage', 'Niederlagen')}</div>
+        <div class="l4">Ø Punkte: du ${fmt(o.mine / o.n)}, ${esc(o.name)} ${fmt(o.theirs / o.n)}</div>
+      </div>`).join('')}`;
+  }
+  $('statin').innerHTML = `<div class="sthead"><h2>Statistik</h2><button id="stclose">Schließen</button></div>
+    <div class="seg" role="tablist"><button role="tab" data-tab="games" class="${statTab === 'games' ? 'on' : ''}">Spiele</button><button role="tab" data-tab="money" class="${statTab === 'money' ? 'on' : ''}">Geld</button></div>${body}
+    <div class="stfoot">Die Statistik liegt nur auf diesem Gerät.${a.n ? '<br><button class="btn ghost" id="streset">Statistik löschen</button>' : ''}</div>`;
+  document.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { statTab = b.dataset.tab; openStats(); });
+  document.querySelectorAll('[data-pay]').forEach(b => b.onclick = () => {
+    const o = aggregate().money.find(x => x.name.toLowerCase() === b.dataset.pay);
+    if (!o || !o.cash) return;
+    if (!confirm(o.cash > 0 ? `${o.name} hat dir ${eur(o.cash)} gegeben?` : `Du hast ${o.name} ${eur(-o.cash)} gegeben?`)) return;
+    const st = loadStats(); st.pay = st.pay || []; st.pay.push({ n: o.name, c: -o.cash, t: Date.now() }); saveStats(st); openStats();
+  });
+  $('stats').classList.add('show');
+  $('stats').scrollTop = 0;
+  $('stclose').onclick = closeStats;
+  const rs = $('streset');
+  if (rs) rs.onclick = () => { if (confirm('Wirklich alle gespeicherten Spiele und die Geld-Bilanz löschen?')) { saveStats({ games: [], pay: [] }); openStats(); } };
+}
+function closeStats() { $('stats').classList.remove('show'); }
+document.addEventListener('click', e => {
+  if (e.target.closest('[data-stats]')) openStats();
+  if (e.target.closest('[data-leave]')) leaveRoom();
+});
+
+// Tisch verlassen und zurück zur Startseite (Verbindung bleibt offen für die Liste der offenen Tische)
+function leaveRoom() {
+  if (solo) {
+    if (S && S.state === 'playing' && !confirm('Solo-Spiel wirklich beenden?')) return;
+    solo = null; botBusy = false; botView = null;
+    try { localStorage.removeItem(SOLO_KEY); } catch {}
+  } else {
+    send({ t: 'leave' });
+    try { localStorage.removeItem('wuerfel_' + roomCode); } catch {}
+  }
+  S = null; view = null; roomCode = ''; error = ''; fatal = false;
+  closedWin = false; dropped = false; justSet = null; lastTotal = {};
+  history.replaceState(null, '', location.pathname);
+  hideWinner(); closeStats();
+  render();
+  send({ t: 'list' });
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeStats(); });
+
+/* ---------- Solo gegen Bot (läuft komplett im Browser, ohne Server) ---------- */
+const LEVELS = { easy: 'Leicht', normal: 'Normal', hard: 'Schwer' };
+const COLSYM = ['↓', '↑', '↕', 'S'];
+const SOLO_KEY = 'wuerfel_solo_v1';
+let solo = null, botBusy = false, botView = null;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const rand6 = () => 1 + Math.floor(Math.random() * 6);
+
+const newCard = () => [0, 1, 2, 3].map(() => Array(10).fill(null));
+const cardFilled = c => c.reduce((a, col) => a + col.filter(v => v !== null).length, 0);
+function cardTotals(card) {
+  const cols = [], bonus = []; let total = 0;
+  for (let c = 0; c < 4; c++) {
+    const upper = card[c].slice(0, 6).reduce((a, v) => a + (v || 0), 0);
+    const sum = card[c].reduce((a, v) => a + (v || 0), 0);
+    const b = upper >= 60 ? (c === 3 ? 60 : 30) : 0;
+    cols.push(sum); bonus.push(b); total += sum + b;
+  }
+  return { cols, bonus, total };
+}
+// Gleiche Regeln wie auf dem Server
+function allowedValues(col, row) {
+  if (row <= 5) return [0, 1, 2, 3, 4, 5].map(n => n * (row + 1));
+  if (row === 9) {
+    const normal = [1, 2, 3, 4, 5, 6].map(n => 50 + n), served = [1, 2, 3, 4, 5, 6].map(n => 100 + n);
+    return col === 3 ? [0, ...served] : [0, ...normal, ...served];
+  }
+  const b = BASE[row - 6];
+  return col === 3 ? [0, b + 5] : [0, b, b + 5];
+}
+
+function soloState() {
+  const mk = (name, p, isMe) => ({ name, connected: true, host: isMe, card: p.card, filled: cardFilled(p.card),
+    canUndo: isMe && p.history.length > 0 && !botBusy, ...cardTotals(p.card) });
+  const done = cardFilled(solo.me.card) === 40 && cardFilled(solo.bot.card) === 40;
+  return { t: 'state', room: 'SOLO', state: done ? 'finished' : 'playing', public: false, game: solo.game, me: 0,
+    players: [mk(solo.name, solo.me, true), mk('Bot ' + LEVELS[solo.level], solo.bot, false)] };
+}
+function soloSync() {
+  S = soloState();
+  if (view === null || view > 1) view = 0;
+  if (S.state === 'finished') { recordGame(S); try { localStorage.removeItem(SOLO_KEY); } catch {} }
+  else { try { localStorage.setItem(SOLO_KEY, JSON.stringify(solo)); } catch {} }
+  render();
+}
+function loadSolo() {
+  try { const j = JSON.parse(localStorage.getItem(SOLO_KEY)); if (j && j.me && j.bot && LEVELS[j.level]) return j; } catch {}
+  return null;
+}
+function startSolo(level) {
+  solo = { level, game: 'solo' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), name: getName() || 'Du',
+    me: { card: newCard(), history: [] }, bot: { card: newCard(), history: [] } };
+  roomCode = ''; view = 0; botView = null; botBusy = false; closedWin = false; justSet = null; lastTotal = {}; error = '';
+  soloSync();
+}
+
+// Was der Server sonst macht: Einträge prüfen, Rückgängig, neue Runde
+function soloHandle(m) {
+  if (!solo) return;
+  if (m.t === 'set') {
+    if (botBusy || S.state !== 'playing') return;
+    const { col, row, value } = m;
+    if (!Number.isInteger(col) || !Number.isInteger(row) || col < 0 || col > 3 || row < 0 || row > 9) return;
+    if (!canPlace(solo.me.card, col, row) || !allowedValues(col, row).includes(value)) return;
+    solo.me.card[col][row] = value; solo.me.history.push({ col, row });
+    soloSync(); botTurn();
+  } else if (m.t === 'undo') {
+    if (botBusy) return;
+    const last = solo.me.history.pop(); if (!last) return;
+    solo.me.card[last.col][last.row] = null;
+    if (cardFilled(solo.bot.card) > cardFilled(solo.me.card)) { // der Bot nimmt seinen letzten Zug auch zurück
+      const b = solo.bot.history.pop(); if (b) solo.bot.card[b.col][b.row] = null;
+    }
+    botView = null; soloSync();
+  } else if (m.t === 'again') {
+    startSolo(solo.level);
+  }
+}
+
+/* --- Wurf auswerten --- */
+function diceInfo(d) {
+  const n = [0, 0, 0, 0, 0, 0, 0]; d.forEach(x => n[x]++);
+  const v = n.slice(1);
+  return {
+    n, five: v.includes(5), face: v.includes(5) ? n.indexOf(5) : 0,
+    four: v.some(x => x >= 4), full: v.includes(3) && v.includes(2),
+    str: !!((n[1] && n[2] && n[3] && n[4] && n[5]) || (n[2] && n[3] && n[4] && n[5] && n[6]))
+  };
+}
+// Punkte, wenn der Bot nach `used` Würfen in dieses Feld einträgt (Spalte S zählt nur beim 1. Wurf)
+function cellPts(info, col, row, used) {
+  if (col === 3 && used > 1) return 0;
+  const first = used === 1;
+  if (row <= 5) return info.n[row + 1] * (row + 1);
+  if (row === 6) return info.str ? 20 + (first ? 5 : 0) : 0;
+  if (row === 7) return info.full ? 30 + (first ? 5 : 0) : 0;
+  if (row === 8) return info.four ? 40 + (first ? 5 : 0) : 0;
+  return info.five ? (first ? 100 : 50) + info.face : 0;
+}
+// Was ein Feld "normalerweise" bringt. Alles darüber ist gut, darunter ist es Verschwendung.
+function par(col, row) {
+  // Werte wurden durch tausende Test-Spiele des Bots gegen sich selbst abgestimmt
+  if (col === 3) return row <= 5 ? 0.5 * (row + 1) : [1.5, 2, 1.5, 0.2][row - 6]; // S: billige Streichspalte
+  const base = row <= 5 ? 2 * (row + 1) : [4.8, 5.6, 4.8, 3.2][row - 6];
+  return base - (col < 2 ? 5 : 0);                                                 // ↓ ↑ lieber früh nutzen
+}
+function legalCells(card) {
+  const out = [];
+  for (let c = 0; c < 4; c++) for (let r = 0; r < 10; r++) if (canPlace(card, c, r)) out.push({ col: c, row: r });
+  return out;
+}
+function rankCells(cells, dice, used) {
+  const info = diceInfo(dice);
+  return cells.map(x => { const pts = cellPts(info, x.col, x.row, used); return { ...x, pts, val: pts - par(x.col, x.row) }; })
+    .sort((a, b) => b.val - a.val);
+}
+const bestVal = (cells, dice, used) => {
+  const info = diceInfo(dice); let best = -1e9;
+  for (const x of cells) { const v = cellPts(info, x.col, x.row, used) - par(x.col, x.row); if (v > best) best = v; }
+  return best;
+};
+
+/* --- Welche Würfel behalten? (Ausprobieren mit Zufallswürfen) --- */
+function holdMasks(dice) {
+  const seen = new Set(), out = [];
+  for (let m = 0; m < 31; m++) {
+    const key = dice.filter((_, i) => (m >> i) & 1).sort().join('');
+    if (!seen.has(key)) { seen.add(key); out.push(m); }
+  }
+  return out;
+}
+function search(dice, used, cells, depth, inner) {
+  const stop = bestVal(cells, dice, used);
+  if (used >= 3 || depth === 0) return { val: stop, mask: null };
+  let best = { val: stop, mask: null };
+  const sims = depth === 1 ? (inner ? 22 : 40) : 40;
+  for (const m of holdMasks(dice)) {
+    let sum = 0;
+    for (let s = 0; s < sims; s++) {
+      const nd = dice.map((d, i) => ((m >> i) & 1) ? d : rand6());
+      sum += search(nd, used + 1, cells, depth - 1, true).val;
+    }
+    const e = sum / sims;
+    if (e > best.val) best = { val: e, mask: m };
+  }
+  return best;
+}
+function easyHold(dice) { // Anfänger: behält die häufigste Zahl, ohne groß zu rechnen
+  const info = diceInfo(dice);
+  if (info.five || info.four || info.full || info.str || Math.random() < 0.25) return null;
+  let face = 1, cnt = 0;
+  for (let f = 6; f >= 1; f--) if (info.n[f] > cnt) { cnt = info.n[f]; face = f; }
+  return dice.map(d => d === face);
+}
+const NORMAL_NOISE = 0.3; // "Normal" macht in so vielen Entscheidungen bewusst einen schwächeren Zug
+function botHold(dice, used, cells, level) {
+  if (level === 'easy') return easyHold(dice);
+  if (level === 'normal' && Math.random() < NORMAL_NOISE) return easyHold(dice);
+  const r = search(dice, used, cells, 1, false); // "Schwer" und "Normal" rechnen gleich gut, Normal patzt nur öfter
+  return r.mask === null ? null : dice.map((_, i) => !!((r.mask >> i) & 1));
+}
+function pickCell(cells, dice, used, level) {
+  const ranked = rankCells(cells, dice, used);
+  if (level === 'hard') return ranked[0];
+  if (level === 'normal') return ranked.length > 1 && Math.random() < NORMAL_NOISE ? ranked[1] : ranked[0];
+  const w = [0.6, 0.25, 0.1, 0.05].slice(0, ranked.length); // Anfänger wählt manchmal das zweit- oder drittbeste Feld
+  let x = Math.random() * w.reduce((a, b) => a + b, 0), i = 0;
+  while (i < w.length - 1 && x > w[i]) { x -= w[i]; i++; }
+  return ranked[i];
+}
+
+// Ein kompletter Bot-Zug (noch ohne Animation): bis zu drei Würfe, dann ein Feld wählen
+function botPlay(card, level) {
+  const cells = legalCells(card);
+  let dice = Array.from({ length: 5 }, rand6), used = 1;
+  const rolls = [{ dice: dice.slice() }];
+  while (used < 3) {
+    const held = botHold(dice, used, cells, level);
+    if (!held) break;
+    rolls[rolls.length - 1].held = held;
+    dice = dice.map((d, i) => held[i] ? d : rand6());
+    used++; rolls.push({ dice: dice.slice() });
+  }
+  return { rolls, cell: pickCell(cells, dice, used, level) };
+}
+
+// Der Bot ist nach jedem Eintrag des Spielers dran (mit kleiner Würfel-Animation)
+async function botTurn() {
+  if (botBusy || !solo) return;
+  while (solo && cardFilled(solo.bot.card) < cardFilled(solo.me.card)) {
+    botBusy = true;
+    await sleep(350);
+    if (!solo) break;
+    const plan = botPlay(solo.bot.card, solo.level);
+    let prevHeld = null;
+    for (let i = 0; i < plan.rolls.length; i++) {
+      const r = plan.rolls[i];
+      botView = { dice: r.dice, held: r.held || [], fresh: r.dice.map((_, j) => !prevHeld || !prevHeld[j]), text: `Bot würfelt: Wurf ${i + 1}` };
+      prevHeld = r.held || [];
+      render();
+      await sleep(850);
+      if (!solo) break;
+    }
+    if (!solo) break;
+    const { col, row, pts } = plan.cell;
+    solo.bot.card[col][row] = pts; solo.bot.history.push({ col, row });
+    justSet = { view: 1, c: col, r: row };
+    botView = { dice: botView.dice, held: [], fresh: null,
+      text: pts === 0 ? `Bot streicht ${ROWNAMES[row]} ${COLSYM[col]}.` : `Bot trägt ${pts} bei ${ROWNAMES[row]} ${COLSYM[col]} ein.` };
+    soloSync();
+    await sleep(500);
+  }
+  botBusy = false;
+  if (solo) soloSync();
+}
+
+function botPanel() {
+  const bv = botView;
+  const dice = bv && bv.dice ? bv.dice.map((d, i) =>
+    `<span class="bdie ${bv.held && bv.held[i] ? 'held' : ''} ${bv.fresh && bv.fresh[i] ? 'new' : ''}">${die(d)}</span>`).join('') : '';
+  const text = bv ? bv.text : 'Würfle mit deinen echten Würfeln und trag ein. Danach ist der Bot dran.';
+  if (bv) bv.fresh = null; // Würfel-Animation nur einmal abspielen
+  return `<div class="botbox"><div class="bt">${esc(text)}</div><div class="bd">${dice}</div></div>`;
+}
+
+function openBotPicker() {
+  const p = $('picker');
+  p.innerHTML = `<div class="head">${die(6)}<div><h3>Gegen den Bot</h3></div></div>
+    <p class="sub">Du würfelst mit echten Würfeln und trägst ein. Der Bot würfelt in der App und ist nach jedem deiner Einträge dran. Wie stark soll er sein?</p>
+    <div class="opts one">
+      <button class="opt" data-lv="easy"><span class="v">Leicht</span><span class="p" style="font-family:var(--ui);font-size:15px">macht viele Fehler</span></button>
+      <button class="opt" data-lv="normal"><span class="v">Normal</span><span class="p" style="font-family:var(--ui);font-size:15px">spielt ordentlich</span></button>
+      <button class="opt" data-lv="hard"><span class="v">Schwer</span><span class="p" style="font-family:var(--ui);font-size:15px">macht kaum Fehler</span></button>
+    </div>
+    <button class="cancel" id="cancel">Abbrechen</button>`;
+  p.querySelectorAll('[data-lv]').forEach(b => b.onclick = () => { closePicker(); startSolo(b.dataset.lv); });
+  $('cancel').onclick = closePicker;
+  $('scrim').classList.add('show');
+}
+
+/* Würfelregen */
+let rainOn = false;
+function drawDie(ctx, x, y, s, n, rot) {
+  ctx.save(); ctx.translate(x, y); ctx.rotate(rot);
+  ctx.fillStyle = '#f4edda'; ctx.strokeStyle = '#cfc6ad'; ctx.lineWidth = s * .04;
+  const r = s * .2, h = s / 2;
+  ctx.beginPath(); ctx.moveTo(-h + r, -h);
+  ctx.arcTo(h, -h, h, h, r); ctx.arcTo(h, h, -h, h, r); ctx.arcTo(-h, h, -h, -h, r); ctx.arcTo(-h, -h, h, -h, r);
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = n === 1 ? '#b9342a' : '#231d1a';
+  PIPS[n].forEach(i => {
+    ctx.beginPath(); ctx.arc(-s * .25 + (i % 3) * s * .25, -s * .25 + Math.floor(i / 3) * s * .25, s * (n === 1 ? .13 : .09), 0, 7); ctx.fill();
+  });
+  ctx.restore();
+}
+function startRain() {
+  if (rainOn || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  rainOn = true;
+  const cv = $('rain'), ctx = cv.getContext('2d');
+  const dpr = devicePixelRatio || 1;
+  cv.width = innerWidth * dpr; cv.height = innerHeight * dpr; cv.style.display = 'block';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const ds = Array.from({ length: 34 }, () => ({
+    x: Math.random() * innerWidth, y: -Math.random() * innerHeight * 1.2 - 40,
+    s: 22 + Math.random() * 20, n: 1 + Math.floor(Math.random() * 6),
+    vy: 2.2 + Math.random() * 2.6, vx: -.6 + Math.random() * 1.2,
+    a: Math.random() * 6, va: -.05 + Math.random() * .1, f: 0
+  }));
+  (function frame() {
+    if (!rainOn) return;
+    ctx.clearRect(0, 0, innerWidth, innerHeight);
+    ds.forEach(d => {
+      d.x += d.vx; d.y += d.vy; d.a += d.va;
+      if (++d.f % 18 === 0) d.n = 1 + Math.floor(Math.random() * 6);
+      if (d.y > innerHeight + 40) { d.y = -40; d.x = Math.random() * innerWidth; }
+      drawDie(ctx, d.x, d.y, d.s, d.n, d.a);
+    });
+    requestAnimationFrame(frame);
+  })();
+}
+function stopRain() { rainOn = false; const cv = $('rain'); cv.style.display = 'none'; }
+$('rain').style.display = 'none';
+</script>
+</body>
+</html>
