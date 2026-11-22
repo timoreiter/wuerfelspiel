@@ -163,6 +163,15 @@ function handle(ws, msg) {
   if (idx < 0) return;
   const me = room.players[idx];
 
+  // Tisch verlassen (im Warteraum und nach dem Spiel); mitten im Spiel nicht
+  if (msg.t === 'leave') {
+    if (room.state === 'playing') return;
+    room.players.splice(idx, 1);
+    ws.room = null; ws.token = null;
+    if (!room.players.length) delete rooms[room.code]; else broadcast(room);
+    return pushRooms();
+  }
+
   if (msg.t === 'start') {
     if (idx !== 0 || room.state !== 'lobby') return;
     room.state = 'playing';
