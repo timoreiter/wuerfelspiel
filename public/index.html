@@ -153,6 +153,11 @@
   .sheet td.avail:active { background-color:rgba(216,171,70,.4); }
   @keyframes pen { 0% { transform:scale(1.9) rotate(-8deg); opacity:0; } 60% { transform:scale(.92); opacity:1; } 100% { transform:scale(1) rotate(0); } }
   .sheet td .n.fresh { animation:pen .32s ease-out; }
+  .sheet tr.sub td { height:56px; background:rgba(29,45,140,.06); }
+  .sheet tr.sub td.lab { font-family:var(--ui); font-size:14px; font-weight:700; color:#555; }
+  .sheet tr.sub .n2 { display:block; font-family:var(--pen); font-weight:700; font-size:28px; line-height:1; color:var(--ink); }
+  .sheet tr.sub small { display:block; font-size:12px; font-weight:600; color:#666; line-height:1.1; margin-top:2px; }
+  .sheet tr.sub small.ok { color:#2f7a45; } .sheet tr.sub small.no { color:var(--red); }
   .sheet tr.sum td { height:36px; font-family:var(--pen); font-weight:700; font-size:23px; }
   .sheet tr.sum.first td { border-top:2px solid var(--ink); }
   .sheet tr.sum td.lab { font-size:14px; font-family:var(--ui); font-weight:700; color:#555; }
@@ -439,6 +444,7 @@ function renderLobby(app) {
       ? `<button class="btn" id="start" ${S.players.length < 2 ? 'disabled' : ''}>Spiel starten</button>
          ${S.players.length < 2 ? '<p class="hint">Es braucht mindestens zwei Spieler.</p>' : ''}`
       : '<p class="wait">Der Gastgeber startet gleich das Spiel.</p>'}
+    <button class="btn ghost" data-leave style="margin-top:14px">Zurück zum Start</button>
     <div class="err" role="alert">${esc(error)}</div>`;
   $('copy').onclick = async e => {
     try { await navigator.clipboard.writeText(link); e.target.textContent = 'Kopiert'; }
@@ -453,6 +459,20 @@ function renderLobby(app) {
 }
 
 /* ---------- Spiel ---------- */
+// Zwischensumme der Zeilen 1-6 pro Spalte und was bis zu den 60 Punkten fehlt
+function subRow(v) {
+  let h = '<tr class="r last sub"><td class="lab small">Σ 1–6</td>';
+  for (let c = 0; c < 4; c++) {
+    let up = 0, rest = 0;
+    for (let r = 0; r < 6; r++) { const x = v.card[c][r]; if (x === null) rest += 5 * (r + 1); else up += x; }
+    const note = up >= 60 ? '<small class="ok">Bonus</small>'
+      : up + rest < 60 ? '<small class="no">verpasst</small>'
+      : `<small>noch ${60 - up}</small>`;
+    h += `<td><span class="n2">${up}</span>${note}</td>`;
+  }
+  return h + '</tr>';
+}
+
 function renderGame(app) {
   const v = S.players[view];
   const mine = view === S.me;
@@ -466,7 +486,7 @@ function renderGame(app) {
 
   let tbl = '<table class="sheet"><colgroup><col class="l"><col><col><col><col></colgroup><tr><th></th>' + ARROWS.map(a => `<th>${a}</th>`).join('') + '</tr>';
   ROWS.forEach((label, r) => {
-    tbl += `<tr class="r ${r === 5 || r === 9 ? 'last' : ''}"><td class="lab">${r < 6 ? die(r + 1) : label}</td>`;
+    tbl += `<tr class="r ${r === 9 ? 'last' : ''}"><td class="lab">${r < 6 ? die(r + 1) : label}</td>`;
     for (let c = 0; c < 4; c++) {
       const val = v.card[c][r];
       const avail = mine && playing && val === null && canPlace(v.card, c, r);
@@ -474,6 +494,7 @@ function renderGame(app) {
       tbl += `<td class="cell ${avail ? 'avail' : ''}" data-c="${c}" data-r="${r}"${avail ? ' role="button" tabindex="0" aria-label="' + ROWNAMES[r] + ' eintragen"' : ''}>${val === null ? '' : `<span class="n ${val === 0 ? 'zero' : ''} ${fresh ? 'fresh' : ''}">${val === 0 ? '✕' : val}</span>`}</td>`;
     }
     tbl += '</tr>';
+    if (r === 5) tbl += subRow(v);
   });
   tbl += `<tr class="sum first"><td class="lab">Bonus</td>${v.bonus.map(b => `<td class="${b ? 'plus' : ''}">${b ? '+' + b : ''}</td>`).join('')}</tr>`;
   tbl += `<tr class="sum"><td class="lab">Summe</td>${v.cols.map((s, i) => `<td>${s + v.bonus[i]}</td>`).join('')}</tr></table>`;
@@ -495,6 +516,7 @@ function renderGame(app) {
       ${S.state === 'finished' ? '<button class="btn ghost" id="res">Ergebnis</button>' : ''}
     </div>
     ${S.state === 'finished' && S.me === 0 ? '<div style="margin-top:14px"><button class="btn" id="again">Neue Runde</button></div>' : ''}
+    ${S.state === 'finished' ? '<div style="margin-top:12px"><button class="btn ghost" data-leave>Zurück zum Start</button></div>' : ''}
     <div class="err" role="alert">${esc(error)}</div>`;
 
   document.querySelectorAll('.pl').forEach(el => el.onclick = () => { view = +el.dataset.i; render(); });
@@ -576,6 +598,7 @@ function showWinner() {
       ${S.me === 0 ? '<button class="btn" id="again2">Neue Runde</button>' : ''}
       <button class="btn ghost" data-stats>Statistik</button>
       <button class="btn ghost" id="closew">Zettel ansehen</button>
+      <button class="btn ghost" data-leave>Zurück zum Start</button>
     </div>`;
   $('win').classList.add('show');
   $('closew').onclick = () => { closedWin = true; hideWinner(); };
@@ -663,7 +686,22 @@ function openStats() {
   if (rs) rs.onclick = () => { if (confirm('Wirklich alle gespeicherten Spiele löschen?')) { saveStats({ games: [] }); openStats(); } };
 }
 function closeStats() { $('stats').classList.remove('show'); }
-document.addEventListener('click', e => { if (e.target.closest('[data-stats]')) openStats(); });
+document.addEventListener('click', e => {
+  if (e.target.closest('[data-stats]')) openStats();
+  if (e.target.closest('[data-leave]')) leaveRoom();
+});
+
+// Tisch verlassen und zurück zur Startseite (Verbindung bleibt offen für die Liste der offenen Tische)
+function leaveRoom() {
+  send({ t: 'leave' });
+  try { localStorage.removeItem('wuerfel_' + roomCode); } catch {}
+  S = null; view = null; roomCode = ''; error = ''; fatal = false;
+  closedWin = false; dropped = false; justSet = null; lastTotal = {};
+  history.replaceState(null, '', location.pathname);
+  hideWinner(); closeStats();
+  render();
+  send({ t: 'list' });
+}
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeStats(); });
 
 /* Würfelregen */
