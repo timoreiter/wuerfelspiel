@@ -5,7 +5,8 @@ const crypto = require('crypto');
 const { WebSocketServer } = require('ws');
 
 const PORT = process.env.PORT || 3000;
-const MAX_PLAYERS = 6;
+const MAX_PLAYERS = 10;
+const MAX_TEAMS = 5; // Teams zu je 2 Spielern
 const ROW_COUNT = 10; // 1-6, Str, Fu, Po, Gr
 const BASE = [20, 30, 40, 50]; // Str, Fu, Po, Gr
 
@@ -80,7 +81,7 @@ const genCode = () => {
 const roomList = () => Object.values(rooms)
   .filter(r => r.public && r.state === 'lobby' && r.players.length < MAX_PLAYERS)
   .slice(0, 20)
-  .map(r => ({ code: r.code, host: r.players[0].name, names: r.players.map(p => p.name), count: r.players.length, max: MAX_PLAYERS, stake: r.stake || 0 }));
+  .map(r => ({ code: r.code, host: r.players[0].name, names: r.players.map(p => p.name), count: r.players.length, max: MAX_PLAYERS, stake: r.stake || 0, mode: r.mode }));
 
 // Alle, die gerade noch in keinem Raum sind (Startseite), sehen die Liste live
 function pushRooms() {
@@ -88,23 +89,70 @@ function pushRooms() {
   wss.clients.forEach(c => { if (!c.room && c.readyState === 1) c.send(msg); });
 }
 
+// Eine "Einheit" ist ein Zettel: im Einzelspiel ein Spieler, im Team-Modus ein Team aus 2 Spielern
+const newUnit = players => ({ players, card: newCard(), history: [], writer: players[0] });
+const unitOf = (room, p) => room.units && room.units.find(u => u.players.includes(p));
+
+function assignTeam(room, p) {
+  for (let t = 0; t < MAX_TEAMS; t++) {
+    if (room.players.filter(q => q !== p && q.team === t).length < 2) { p.team = t; return; }
+  }
+}
+
+function canStart(room) {
+  if (room.players.length < 2) return false;
+  if (room.mode !== 'teams') return true;
+  const c = {};
+  room.players.forEach(p => { c[p.team] = (c[p.team] || 0) + 1; });
+  const v = Object.values(c);
+  return v.length >= 2 && v.every(n => n === 2);
+}
+
+function buildUnits(room) {
+  if (room.mode === 'teams') {
+    const g = {};
+    room.players.forEach(p => { (g[p.team] = g[p.team] || []).push(p); });
+    return Object.keys(g).sort((a, b) => a - b).map(k => newUnit(g[k]));
+  }
+  return room.players.map(p => newUnit([p]));
+}
+
 function publicState(room, meIdx) {
+  const me = room.players[meIdx];
+  const units = room.units;
+  const idxOf = p => room.players.indexOf(p);
+  const uOf = p => (units ? units.findIndex(u => u.players.includes(p)) : -1);
+  const unitData = units ? units.map(u => ({
+    name: u.players.map(p => p.name).join(' & '),
+    members: u.players.map(idxOf).filter(i => i >= 0),
+    writer: idxOf(u.writer),
+    connected: u.players.some(p => p.connected),
+    card: u.card,
+    filled: filled(u.card),
+    canUndo: u.history.length > 0,
+    ...totals(u.card),
+  })) : null;
+  const myUnit = uOf(me);
   return {
     t: 'state',
     room: room.code,
     state: room.state,
     public: !!room.public,
     stake: room.stake || 0, // Einsatz in Cent pro Punkt Unterschied (0 = ohne Geld)
+    mode: room.mode,
     game: room.game || null,
     me: meIdx,
+    myUnit,
+    iWrite: units && myUnit >= 0 ? units[myUnit].writer === me : false,
+    units: unitData,
+    pairs: (room.pairs || []).map(([a, b]) => [idxOf(a), idxOf(b)]).filter(([a, b]) => a >= 0 && b >= 0),
     players: room.players.map((p, i) => ({
       name: p.name,
       connected: p.connected,
       host: i === 0,
-      card: p.card,
-      filled: filled(p.card),
-      canUndo: p.history.length > 0,
-      ...totals(p.card),
+      team: p.team,
+      u: uOf(p),
+      total: units && uOf(p) >= 0 ? unitData[uOf(p)].total : 0,
     })),
   };
 }
@@ -116,7 +164,7 @@ function broadcast(room) {
 }
 
 const send = (ws, obj) => ws.readyState === 1 && ws.send(JSON.stringify(obj));
-const newPlayer = (name, token, ws) => ({ name, token, ws, connected: true, card: newCard(), history: [] });
+const newPlayer = (name, token, ws) => ({ name, token, ws, connected: true, team: null });
 
 function handle(ws, msg) {
   if (msg.t === 'list') return send(ws, { t: 'rooms', rooms: roomList() });
@@ -126,7 +174,7 @@ function handle(ws, msg) {
     if (!name) return send(ws, { t: 'error', msg: 'Bitte einen Namen eingeben.' });
     const code = genCode();
     const token = crypto.randomBytes(12).toString('hex');
-    const room = { code, state: 'lobby', public: !!msg.public, stake: 0, players: [newPlayer(name, token, ws)] };
+    const room = { code, state: 'lobby', public: !!msg.public, stake: 0, mode: 'single', units: null, pairs: [], players: [newPlayer(name, token, ws)] };
     rooms[code] = room;
     ws.room = room; ws.token = token;
     send(ws, { t: 'welcome', room: code, token });
@@ -151,7 +199,9 @@ function handle(ws, msg) {
     if (room.players.some(p => p.name.toLowerCase() === name.toLowerCase()))
       return send(ws, { t: 'error', msg: 'Der Name ist schon vergeben.' });
     const token = crypto.randomBytes(12).toString('hex');
-    room.players.push(newPlayer(name, token, ws));
+    const np = newPlayer(name, token, ws);
+    room.players.push(np);
+    if (room.mode === 'teams') assignTeam(room, np);
     ws.room = room; ws.token = token;
     send(ws, { t: 'welcome', room: room.code, token });
     broadcast(room);
@@ -174,10 +224,11 @@ function handle(ws, msg) {
   }
 
   if (msg.t === 'start') {
-    if (idx !== 0 || room.state !== 'lobby') return;
+    if (idx !== 0 || room.state !== 'lobby' || !canStart(room)) return;
     room.state = 'playing';
     room.game = crypto.randomBytes(6).toString('hex'); // Spiel-Nummer, damit jedes Spiel nur einmal gezählt wird
-    room.players.forEach(p => { p.card = newCard(); p.history = []; });
+    room.units = buildUnits(room);
+    room.pairs = [];
     broadcast(room);
     return pushRooms();
   }
@@ -186,7 +237,8 @@ function handle(ws, msg) {
     if (idx !== 0 || room.state !== 'finished') return;
     room.state = 'lobby';
     room.players = room.players.filter(p => p.connected);
-    room.players.forEach(p => { p.card = newCard(); p.history = []; });
+    room.units = null; room.pairs = [];
+    if (room.mode === 'teams') room.players.forEach(p => { if (p.team === null || room.players.filter(q => q.team === p.team).length > 2) assignTeam(room, p); });
     broadcast(room);
     return pushRooms();
   }
@@ -201,6 +253,29 @@ function handle(ws, msg) {
     return pushRooms();
   }
 
+  // Einzeln oder Teams (2er): nur der Gastgeber im Warteraum
+  if (msg.t === 'mode') {
+    if (idx !== 0 || room.state !== 'lobby' || (msg.value !== 'single' && msg.value !== 'teams')) return;
+    room.mode = msg.value;
+    if (room.mode === 'teams') {
+      room.players.forEach(p => { p.team = null; });
+      room.players.forEach(p => assignTeam(room, p));
+    }
+    broadcast(room);
+    return pushRooms();
+  }
+
+  // Team wechseln: jeder für sich, der Gastgeber auch für andere
+  if (msg.t === 'team') {
+    if (room.state !== 'lobby' || room.mode !== 'teams') return;
+    const target = idx === 0 && Number.isInteger(msg.who) && room.players[msg.who] ? room.players[msg.who] : me;
+    const v = msg.value;
+    if (!Number.isInteger(v) || v < 0 || v >= MAX_TEAMS) return;
+    if (room.players.filter(q => q !== target && q.team === v).length >= 2) return;
+    target.team = v;
+    return broadcast(room);
+  }
+
   // Gastgeber schaltet den Tisch öffentlich oder privat
   if (msg.t === 'visibility') {
     if (idx !== 0 || room.state !== 'lobby') return;
@@ -211,24 +286,52 @@ function handle(ws, msg) {
 
   if (room.state === 'lobby') return;
 
-  // Eintragen: jeder Spieler trägt nur in seinen eigenen Zettel ein
+  // Eintragen: nur der Schreiber der eigenen Einheit (im Einzelspiel jeder für sich)
+  const unit = unitOf(room, me);
+  if (!unit) return;
+
   if (msg.t === 'set') {
+    if (unit.writer !== me) return;
     const { col, row, value } = msg;
     if (!Number.isInteger(col) || !Number.isInteger(row) || col < 0 || col > 3 || row < 0 || row >= ROW_COUNT) return;
-    if (!canPlace(me.card, col, row)) return;
+    if (!canPlace(unit.card, col, row)) return;
     if (!allowedValues(col, row).includes(value)) return;
-    me.card[col][row] = value;
-    me.history.push({ col, row });
-    room.state = room.players.every(p => isFull(p.card)) ? 'finished' : 'playing';
+    unit.card[col][row] = value;
+    unit.history.push({ col, row });
+    room.state = room.units.every(u => isFull(u.card)) ? 'finished' : 'playing';
     return broadcast(room);
   }
 
-  // Letzten eigenen Eintrag rückgängig machen (Vertipper)
+  // Letzten Eintrag rückgängig machen (Vertipper)
   if (msg.t === 'undo') {
-    const last = me.history.pop();
+    if (unit.writer !== me) return;
+    const last = unit.history.pop();
     if (!last) return;
-    me.card[last.col][last.row] = null;
+    unit.card[last.col][last.row] = null;
     room.state = 'playing';
+    return broadcast(room);
+  }
+
+  // Schreiber übernehmen (Team-Modus)
+  if (msg.t === 'writer') {
+    if (room.state !== 'playing') return;
+    unit.writer = me;
+    return broadcast(room);
+  }
+
+  // Abrechnung im Team-Modus: a rechnet mit b ab, der Partner von a automatisch mit dem Partner von b
+  if (msg.t === 'pick') {
+    if (room.state !== 'finished' || room.mode !== 'teams') return;
+    const pa = room.players[msg.a], pb = room.players[msg.b];
+    if (!pa || !pb) return;
+    const ua = unitOf(room, pa), ub = unitOf(room, pb);
+    if (!ua || !ub || ua === ub) return;
+    if (unit !== ua && unit !== ub) return;
+    const between = ([x, y]) => (ua.players.includes(x) && ub.players.includes(y)) || (ub.players.includes(x) && ua.players.includes(y));
+    room.pairs = room.pairs.filter(pr => !between(pr));
+    room.pairs.push([pa, pb]);
+    const pa2 = ua.players.find(p => p !== pa), pb2 = ub.players.find(p => p !== pb);
+    if (pa2 && pb2) room.pairs.push([pa2, pb2]);
     return broadcast(room);
   }
 }
@@ -248,7 +351,10 @@ wss.on('connection', ws => {
       room.players.splice(idx, 1);
       if (!room.players.length) { delete rooms[room.code]; return pushRooms(); }
     } else {
-      room.players[idx].connected = false;
+      const gone = room.players[idx];
+      gone.connected = false;
+      const u = unitOf(room, gone); // fällt der Schreiber aus, schreibt der Partner
+      if (u && u.writer === gone) { const alt = u.players.find(q => q !== gone && q.connected); if (alt) u.writer = alt; }
       if (room.players.every(p => !p.connected)) {
         setTimeout(() => {
           if (rooms[room.code] && room.players.every(p => !p.connected)) delete rooms[room.code];
