@@ -96,9 +96,9 @@
   .slip { color:#222; border-radius:4px; padding:20px 18px 18px; margin-top:6px; transform:rotate(-.6deg); position:relative;
     background-image:repeating-linear-gradient(to bottom, transparent 0 53px, var(--rule) 53px 54px);
     box-shadow:0 2px 0 #e6dcc2, 0 5px 0 #d2c6a6, 0 7px 0 #e6dcc2, 0 16px 26px rgba(0,0,0,.45); }
-  .slip::before, .slip::after { content:""; position:absolute; width:30px; height:30px; z-index:1; }
-  .slip::before { left:0; top:0; background:linear-gradient(135deg, #1f5a46 0 50%, #d9cdac 50% 100%); box-shadow:2px 2px 4px rgba(0,0,0,.3); border-bottom-right-radius:4px; }
-  .slip::after { right:0; bottom:0; background:linear-gradient(315deg, #1f5a46 0 50%, #d9cdac 50% 100%); box-shadow:-2px -2px 4px rgba(0,0,0,.25); border-top-left-radius:4px; }
+  .slip::before, .slip::after, .ticket::before, .ticket::after, .tile::before, .tile::after { content:""; position:absolute; width:var(--f,30px); height:var(--f,30px); z-index:1; }
+  .slip::before, .ticket::before, .tile::before { left:0; top:0; background:linear-gradient(135deg, #1f5a46 0 50%, #d9cdac 50% 100%); box-shadow:2px 2px 4px rgba(0,0,0,.3); border-bottom-right-radius:4px; }
+  .slip::after, .ticket::after, .tile::after { right:0; bottom:0; background:linear-gradient(315deg, #1f5a46 0 50%, #d9cdac 50% 100%); box-shadow:-2px -2px 4px rgba(0,0,0,.25); border-top-left-radius:4px; }
   .slip label { display:block; font-weight:800; margin-bottom:2px; color:#4a4a4a; font-size:18px; }
   .slip input { width:100%; font-family:var(--pen); font-weight:700; font-size:38px; color:var(--ink); background:transparent; border:0; border-bottom:2px solid var(--ink); padding:0 2px 0; margin-bottom:22px; outline:none; border-radius:0; }
   .slip input:focus { border-bottom-color:var(--red); }
@@ -141,10 +141,11 @@
 
   /* ---------- Warteraum ---------- */
   .lobh { text-align:center; margin:2px 0 18px; }
-  .ticket { color:#222; border-radius:4px; padding:20px 16px 16px; margin:8px 0 18px; position:relative; transform:rotate(.4deg);
+  .ticket { color:#222; border-radius:4px; padding:22px 18px 18px; margin:14px 0 22px; position:relative; transform:rotate(-.6deg);
     background-image:repeating-linear-gradient(to bottom, transparent 0 53px, var(--rule) 53px 54px);
-    box-shadow:0 2px 0 #e6dcc2, 0 5px 0 #d2c6a6, 0 14px 24px rgba(0,0,0,.45); }
-  .ticket .big { font-family:var(--display); font-size:42px; letter-spacing:8px; text-align:center; color:var(--ink); padding:6px 0 12px 8px; border-bottom:2px solid var(--ink); margin-bottom:14px; }
+    box-shadow:0 2px 0 #e6dcc2, 0 5px 0 #d2c6a6, 0 7px 0 #e6dcc2, 0 16px 26px rgba(0,0,0,.45); }
+  .ticket label { display:block; font-weight:800; margin-bottom:0; color:#4a4a4a; font-size:18px; }
+  .ticket .big { font-family:var(--pen); font-weight:700; font-size:62px; line-height:1.05; letter-spacing:9px; text-align:center; color:var(--ink); padding:4px 0 2px 9px; border-bottom:2px solid var(--ink); margin-bottom:20px; }
   .seats { display:grid; grid-template-columns:repeat(3,1fr); gap:14px 8px; margin:6px 0 22px; }
   .seat { text-align:center; }
   .seat .tok { margin:0 auto 6px; }
@@ -285,8 +286,11 @@
   .sthead h2.wood { font-size:36px; }
   .sthead button { background:linear-gradient(#f9f3e1, var(--sand)); color:#4a3a2a; border:2px solid #d8ceb0; border-radius:20px; padding:6px 14px; font-weight:800; box-shadow:0 3px 0 var(--sand-d); }
   .tiles { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-  .tile { background-color:var(--paper); color:var(--ink); border-radius:6px; padding:12px 14px 10px; box-shadow:0 5px 0 var(--sand-d), 0 10px 14px rgba(0,0,0,.28); }
-  .tile:nth-child(odd) { transform:rotate(-.7deg); } .tile:nth-child(even) { transform:rotate(.6deg); }
+  .tile { --f:20px; position:relative; background-color:var(--paper); background-image:repeating-linear-gradient(to bottom, transparent 0 26px, var(--rule) 26px 27px); color:var(--ink); border-radius:4px; padding:20px 14px 12px; margin-top:8px;
+    box-shadow:0 2px 0 #e6dcc2, 0 4px 0 #d2c6a6, 0 6px 0 #e6dcc2, 0 12px 18px rgba(0,0,0,.4); }
+  .tile .tape { width:64px; height:20px; margin-left:-32px; top:-11px; }
+  .tile:nth-child(odd) { transform:rotate(-.9deg); } .tile:nth-child(even) { transform:rotate(.8deg); }
+  .tile:nth-child(even) .tape { transform:rotate(1.8deg); }
   .tile b { display:block; font-family:var(--pen); font-weight:700; font-size:44px; line-height:1; }
   .tile span { font-weight:700; font-size:15px; color:#555; }
   .tiles.m .tile b { font-size:34px; white-space:nowrap; }
@@ -608,6 +612,7 @@ function renderLobby(app) {
   app.innerHTML = `${topbar()}
     <h2 class="wood lobh" aria-label="Warteraum">${wood('Warteraum')}</h2>
     <div class="ticket"><i class="tape"></i>
+      <label>Raumcode</label>
       <div class="big">${esc(S.room)}</div>
       <div class="row">
         <button class="btn ghost" id="copy">Link kopieren</button>
@@ -937,10 +942,10 @@ function openStats() {
     body = `<div class="stempty">Noch keine Spiele gespeichert. Sobald ein Spiel fertig ist, erscheinen hier deine Siege, Niederlagen und Durchschnittspunkte.</div>`;
   } else {
     body = `<div class="tiles">
-        <div class="tile"><b>${a.n}</b><span>${a.n === 1 ? 'Spiel' : 'Spiele'}</span></div>
-        <div class="tile"><b>${a.w}</b><span>${a.w === 1 ? 'Sieg' : 'Siege'}</span></div>
-        <div class="tile"><b>${fmt(a.sum / a.n)}</b><span>Ø Punkte pro Spiel</span></div>
-        <div class="tile"><b>${a.best}</b><span>Bestes Spiel</span></div>
+        <div class="tile"><i class="tape"></i><b>${a.n}</b><span>${a.n === 1 ? 'Spiel' : 'Spiele'}</span></div>
+        <div class="tile"><i class="tape"></i><b>${a.w}</b><span>${a.w === 1 ? 'Sieg' : 'Siege'}</span></div>
+        <div class="tile"><i class="tape"></i><b>${fmt(a.sum / a.n)}</b><span>Ø Punkte pro Spiel</span></div>
+        <div class="tile"><i class="tape"></i><b>${a.best}</b><span>Bestes Spiel</span></div>
       </div>
       <p class="recap">${plural(a.w, 'Sieg', 'Siege')}, ${plural(a.d, 'Unentschieden', 'Unentschieden')}, ${plural(a.l, 'Niederlage', 'Niederlagen')}.</p>
       <h3 class="stsec wood" aria-label="Gegen andere Spieler">${wood('Gegen andere Spieler')}</h3>
