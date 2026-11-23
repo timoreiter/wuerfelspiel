@@ -845,13 +845,7 @@ const plural = (n, a, b) => n + ' ' + (n === 1 ? a : b);
 let statTab = 'games';
 function moneyBody(a) {
   if (!a.mg) return `<div class="stempty">Noch keine Spiele um Geld. Stelle im Warteraum einen Einsatz pro Punkt ein, dann erscheint hier, wie du gegen jeden Mitspieler stehst.</div>`;
-  return `<div class="tiles m">
-      <div class="tile"><b>${seur(a.cash)}</b><span>Bilanz offen</span></div>
-      <div class="tile"><b>${a.mg}</b><span>${a.mg === 1 ? 'Spiel um Geld' : 'Spiele um Geld'}</span></div>
-      <div class="tile"><b>${seur(a.bestNet)}</b><span>Bestes Spiel</span></div>
-      <div class="tile"><b>${seur(a.worstNet)}</b><span>Schlechtestes Spiel</span></div>
-    </div>
-    <h3 class="stsec" style="margin-top:24px">Gegen andere Spieler</h3>
+  return `<h3 class="stsec" style="margin-top:4px">Gegen andere Spieler</h3>
     ${a.money.map(o => `<div class="vs">
       <div class="l1"><div class="tok" style="--c:${nameColor(o.name)}">${esc(o.name[0].toUpperCase())}</div>
         <div class="nm"><b>${esc(o.name)}</b><small>${plural(o.mg, 'Spiel', 'Spiele')} um Geld</small></div>
