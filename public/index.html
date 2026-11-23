@@ -274,8 +274,8 @@
   .stake .step button:disabled { opacity:.35; }
   .stake .amt { font-family:var(--display); font-size:34px; color:var(--brass); text-align:center; flex:1; }
   .stake .amt small { display:block; font-family:var(--ui); font-size:13px; color:rgba(244,237,218,.7); font-weight:600; }
-  .stake .chips { display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; }
-  .stake .chips button { flex:1; min-width:52px; padding:8px 4px; border-radius:20px; border:2px solid rgba(244,237,218,.35); background:none; color:var(--ivory); font-weight:700; font-size:15px; }
+  .stake .chips { display:grid; grid-template-columns:repeat(6,1fr); gap:5px; margin-top:12px; }
+  .stake .chips button { min-width:0; padding:8px 0; border-radius:20px; border:2px solid rgba(244,237,218,.35); background:none; color:var(--ivory); font-weight:700; font-size:13px; white-space:nowrap; }
   .stake .chips button.on { background:var(--brass); border-color:var(--brass); color:var(--felt-deep); }
   .stake .show { font-family:var(--display); font-size:22px; color:var(--brass); }
   .rm .stk { font-size:14px; font-weight:700; color:var(--ivory); background:rgba(0,0,0,.3); border-radius:12px; padding:3px 9px; flex:none; }
@@ -296,6 +296,25 @@
   .vs .money { font-size:26px; flex:none; }
   .vs .pay { margin-top:10px; width:100%; padding:8px; font-size:15px; border-radius:20px; border:2px solid rgba(244,237,218,.35); background:none; color:var(--ivory); font-weight:700; }
 
+  /* ---------- Teams ---------- */
+  .seats.ten { grid-template-columns:repeat(5,1fr); gap:12px 4px; }
+  .seats.ten .tok { width:42px; height:42px; font-size:20px; }
+  .seats.ten .seat b { font-size:14px; }
+  .team { background:rgba(0,0,0,.25); border-radius:14px; padding:10px 12px; margin-bottom:8px; }
+  .team > b { font-family:var(--display); font-weight:400; font-size:16px; display:block; margin-bottom:6px; }
+  .team .tm { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .mem, .slot { display:flex; align-items:center; gap:8px; min-height:50px; min-width:0; border-radius:12px; padding:5px 8px; color:var(--ivory); font-weight:700; font-size:16px; text-align:left; }
+  .mem { background:rgba(255,255,255,.08); border:2px solid transparent; }
+  .mem:disabled { opacity:1; }
+  .mem.sel { border-color:var(--brass); }
+  .mem .tok { width:36px; height:36px; font-size:18px; flex:none; }
+  .mem span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .slot { justify-content:center; background:none; border:2px dashed rgba(244,237,218,.35); color:rgba(244,237,218,.75); font-weight:600; }
+  .stake .seg { margin-bottom:0; }
+  .pks { display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin:6px 0 2px; font-size:14px; color:rgba(244,237,218,.75); }
+  .pks button { border:2px solid rgba(244,237,218,.4); background:none; color:var(--ivory); border-radius:16px; padding:5px 12px; font-weight:700; font-size:15px; }
+  .pks button.on { background:var(--brass); border-color:var(--brass); color:var(--felt-deep); }
+
   @media (prefers-reduced-motion:reduce) {
     *, *::before, *::after { animation-duration:.01ms !important; animation-delay:0ms !important; transition:none !important; }
   }
@@ -313,7 +332,7 @@ const ROWS = ['1','2','3','4','5','6','Str','Fu','Po','Gr'];
 const ROWNAMES = ['Einser','Zweier','Dreier','Vierer','Fünfer','Sechser','Straße','Full House','Poker','Grande'];
 const COLNAMES = ['von oben nach unten','von unten nach oben','freie Reihenfolge','serviert, nur mit dem 1. Wurf'];
 const BASE = [20, 30, 40, 50];
-const COLORS = ['#b9342a','#c98a1e','#2f7f7a','#3b5ba5','#c4632a','#7a3b6b'];
+const COLORS = ['#b9342a','#c98a1e','#2f7f7a','#3b5ba5','#c4632a','#7a3b6b','#5a7a2a','#8b5a3c','#d1556e','#2d8fb3'];
 const PIPS = { 1:[4], 2:[0,8], 3:[0,4,8], 4:[0,2,6,8], 5:[0,2,4,6,8], 6:[0,2,3,5,6,8] };
 
 const $ = id => document.getElementById(id);
@@ -335,6 +354,13 @@ const ARROWS = [
 ];
 
 let ws, S = null, view = null;
+// Einheitliche Form: units = die Zettel (Einzelspieler oder Teams), myUnit = mein Zettel
+function norm(m) {
+  if (!m.units) { m.units = m.players; m.myUnit = m.me; m.iWrite = true; }
+  if (!m.mode) m.mode = 'single';
+  if (!m.pairs) m.pairs = [];
+  return m;
+}
 let error = '', fatal = false, closedWin = false, dropped = false;
 let justSet = null, lastTotal = {};
 const params = new URLSearchParams(location.search);
@@ -368,10 +394,12 @@ function connect(then) {
     } else if (m.t === 'error') {
       error = m.msg; if (m.fatal) fatal = true; render();
     } else if (m.t === 'state') {
+      norm(m);
       if (m.state === 'finished' && m.game) recordGame(m);
       if (m.state !== 'finished') closedWin = false;
+      const prev = S && S.state;
       S = m;
-      if (view === null || view >= S.players.length) view = S.me;
+      if (view === null || view >= S.units.length || (prev === 'lobby' && S.state !== 'lobby')) view = S.myUnit;
       render();
     }
   };
@@ -460,7 +488,7 @@ function fillRooms() {
     ? rooms.map(r => `<button class="rm" data-code="${esc(r.code)}">
         <div class="tok" style="--c:${COLORS[0]}">${esc(r.host[0].toUpperCase())}</div>
         <div class="tx"><b>${esc(r.host)}</b><small>${esc(r.names.join(', '))}</small></div>
-        ${r.stake ? `<span class="stk">${eur(r.stake)} / Pkt</span>` : ''}<span class="cnt">${r.count}/${r.max}</span></button>`).join('')
+        ${r.mode === 'teams' ? '<span class="stk">Teams</span>' : ''}${r.stake ? `<span class="stk">${eur(r.stake)} / Pkt</span>` : ''}<span class="cnt">${r.count}/${r.max}</span></button>`).join('')
     : '<p class="none">Gerade ist kein Tisch offen. Eröffne einen und schalte ihn sichtbar.</p>');
   el.querySelectorAll('.rm').forEach(b => b.onclick = () => {
     const name = $('name') ? $('name').value : '';
@@ -471,16 +499,38 @@ function fillRooms() {
 }
 
 /* ---------- Warteraum ---------- */
+let moveSel = null; // Gastgeber: Spieler, der in ein anderes Team verschoben werden soll
 function renderLobby(app) {
   const link = location.origin + '/?room=' + S.room;
   const isHost = S.me === 0;
-  const seats = [];
-  for (let i = 0; i < 6; i++) {
-    const p = S.players[i];
-    seats.push(p
-      ? `<div class="seat"><div class="tok" style="--c:${COLORS[i]}">${esc(p.name[0].toUpperCase())}</div><b>${esc(p.name)}</b>${p.host ? '<small>Gastgeber</small>' : ''}</div>`
-      : `<div class="seat empty"><div class="tok">?</div></div>`);
+  const teams = S.mode === 'teams';
+  let seatsHtml;
+  if (!teams) {
+    const seats = [];
+    for (let i = 0; i < 10; i++) {
+      const p = S.players[i];
+      seats.push(p
+        ? `<div class="seat"><div class="tok" style="--c:${COLORS[i]}">${esc(p.name[0].toUpperCase())}</div><b>${esc(p.name)}</b>${p.host ? '<small>Gastgeber</small>' : ''}</div>`
+        : `<div class="seat empty"><div class="tok">?</div></div>`);
+    }
+    seatsHtml = `<div class="seats ten">${seats.join('')}</div>`;
+  } else {
+    const used = S.players.reduce((m, p) => Math.max(m, (p.team === null ? -1 : p.team) + 1), 0);
+    const n = Math.min(5, Math.max(2, used, Math.ceil(S.players.length / 2) + 1));
+    let h = '';
+    for (let t = 0; t < n; t++) {
+      const mem = S.players.map((p, i) => ({ p, i })).filter(x => x.p.team === t);
+      const slots = [0, 1].map(k => mem[k]
+        ? `<button class="mem ${moveSel === mem[k].i ? 'sel' : ''}" data-who="${mem[k].i}" ${isHost ? '' : 'disabled'}><div class="tok" style="--c:${COLORS[t]}">${esc(mem[k].p.name[0].toUpperCase())}</div><span>${esc(mem[k].p.name)}</span></button>`
+        : `<button class="slot" data-team="${t}">Platz frei</button>`).join('');
+      h += `<div class="team"><b>Team ${t + 1}</b><div class="tm">${slots}</div></div>`;
+    }
+    seatsHtml = `<div style="margin:6px 0 20px">${h}${isHost ? '<p class="hint" style="margin:6px 0 0">Tippe einen Spieler an und dann einen freien Platz, um ihn zu verschieben. Ohne Auswahl setzt du dich selbst um.</p>' : '<p class="hint" style="margin:6px 0 0">Tippe auf einen freien Platz, um das Team zu wechseln.</p>'}</div>`;
   }
+  const counts = {};
+  S.players.forEach(p => { counts[p.team] = (counts[p.team] || 0) + 1; });
+  const cv = Object.values(counts);
+  const startOk = teams ? cv.length >= 2 && cv.every(c => c === 2) : S.players.length >= 2;
   app.innerHTML = `${topbar()}
     <div class="ticket">
       <h2>Warteraum</h2>
@@ -491,17 +541,20 @@ function renderLobby(app) {
       </div>
     </div>
     ${isHost ? `<label class="sw dark"><input type="checkbox" id="publ" ${S.public ? 'checked' : ''}><span class="tr"></span><span>Tisch für alle sichtbar<small>Erscheint unter „Offene Tische“.</small></span></label>` : ''}
-    <div class="stake"><h3>Geld-Modus</h3>${isHost ? `
+    <div class="stake"><h3>Spielmodus</h3>${isHost
+      ? `<div class="seg" style="margin-top:8px"><button data-mode="single" class="${teams ? '' : 'on'}">Einzeln</button><button data-mode="teams" class="${teams ? 'on' : ''}">Teams (2er)</button></div>`
+      : `<p style="margin:4px 0 0">${teams ? 'Teams mit je 2 Spielern. Pro Team schreibt einer den Zettel.' : 'Jeder spielt für sich.'}</p>`}</div>
+    <div class="stake"><h3>Geld-Modus</h3>${S.stake === undefined ? '<p style="margin:4px 0 0">Der Server ist noch auf dem alten Stand. Lade server.js auf GitHub hoch und warte, bis Render fertig ist.</p>' : isHost ? `
       <p>Betrag pro Punkt Unterschied in der Gesamtpunktzahl.</p>
       <div class="step"><button id="stm" aria-label="Weniger" ${S.stake <= 0 ? 'disabled' : ''}>−</button>
         <div class="amt">${S.stake ? eur(S.stake) : 'Aus'}<small>${S.stake ? 'pro Punkt' : 'Spiel ohne Geld'}</small></div>
         <button id="stp" aria-label="Mehr" ${S.stake >= 200 ? 'disabled' : ''}>+</button></div>
       <div class="chips">${[0, 10, 20, 50, 100, 200].map(c => `<button data-stake="${c}" class="${S.stake === c ? 'on' : ''}">${c ? eur(c) : 'Aus'}</button>`).join('')}</div>`
       : `<p style="margin:4px 0 0">${S.stake ? `<span class="show">${eur(S.stake)}</span> pro Punkt Unterschied.` : 'Dieses Spiel läuft ohne Geld.'}</p>`}</div>
-    <div class="seats">${seats.join('')}</div>
+    ${seatsHtml}
     ${isHost
-      ? `<button class="btn" id="start" ${S.players.length < 2 ? 'disabled' : ''}>Spiel starten</button>
-         ${S.players.length < 2 ? '<p class="hint">Es braucht mindestens zwei Spieler.</p>' : ''}`
+      ? `<button class="btn" id="start" ${startOk ? '' : 'disabled'}>Spiel starten</button>
+         ${startOk ? '' : `<p class="hint">${teams ? 'Es braucht mindestens zwei Teams mit je genau 2 Spielern.' : 'Es braucht mindestens zwei Spieler.'}</p>`}`
       : '<p class="wait">Der Gastgeber startet gleich das Spiel.</p>'}
     <button class="btn ghost" data-leave style="margin-top:14px">Zurück zum Start</button>
     <div class="err" role="alert">${esc(error)}</div>`;
@@ -517,6 +570,13 @@ function renderLobby(app) {
   if ($('stm')) $('stm').onclick = () => setStake(S.stake - 10);
   if ($('stp')) $('stp').onclick = () => setStake(S.stake + 10);
   document.querySelectorAll('[data-stake]').forEach(b => b.onclick = () => setStake(+b.dataset.stake));
+  document.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => { moveSel = null; send({ t: 'mode', value: b.dataset.mode }); });
+  document.querySelectorAll('[data-who]').forEach(b => b.onclick = () => { moveSel = moveSel === +b.dataset.who ? null : +b.dataset.who; render(); });
+  document.querySelectorAll('[data-team]').forEach(b => b.onclick = () => {
+    const who = isHost && moveSel !== null ? moveSel : undefined;
+    moveSel = null;
+    send({ t: 'team', value: +b.dataset.team, who });
+  });
   const pl = $('publ');
   if (pl) pl.onchange = () => send({ t: 'visibility', value: pl.checked });
 }
@@ -537,11 +597,14 @@ function subRow(v) {
 }
 
 function renderGame(app) {
-  const v = S.players[view];
-  const mine = view === S.me;
+  const v = S.units[view];
+  const mine = view === S.myUnit;
+  const canWrite = mine && S.iWrite;
+  const teamsMode = S.mode === 'teams';
+  const writerName = esc((S.players[v.writer] || {}).name || '');
   const playing = S.state === 'playing';
 
-  const chips = S.players.map((p, i) => `
+  const chips = S.units.map((p, i) => `
     <button class="pl ${i === view ? 'on' : ''} ${p.connected ? '' : 'off'}" data-i="${i}" aria-pressed="${i === view}">
       <div class="tok" style="--c:${COLORS[i]}">${esc(p.name[0].toUpperCase())}</div>
       <div><b>${esc(p.name)}</b><span>${p.total}</span><small>${p.filled}/40</small></div>
@@ -552,7 +615,7 @@ function renderGame(app) {
     tbl += `<tr class="r ${r === 9 ? 'last' : ''}"><td class="lab">${r < 6 ? die(r + 1) : label}</td>`;
     for (let c = 0; c < 4; c++) {
       const val = v.card[c][r];
-      const avail = mine && playing && !botBusy && val === null && canPlace(v.card, c, r);
+      const avail = canWrite && playing && !botBusy && val === null && canPlace(v.card, c, r);
       const fresh = justSet && justSet.view === view && justSet.c === c && justSet.r === r;
       tbl += `<td class="cell ${avail ? 'avail' : ''}" data-c="${c}" data-r="${r}"${avail ? ' role="button" tabindex="0" aria-label="' + ROWNAMES[r] + ' eintragen"' : ''}>${val === null ? '' : `<span class="n ${val === 0 ? 'zero' : ''} ${fresh ? 'fresh' : ''}">${val === 0 ? '✕' : val}</span>`}</td>`;
     }
@@ -571,13 +634,15 @@ function renderGame(app) {
     ${S.stake ? `<div class="stline">Einsatz: ${eur(S.stake)} pro Punkt</div>` : ''}
     ${solo ? botPanel() : ''}
     <div class="pad">
-      <div class="who"><span>${esc(v.name)}</span>${mine ? '' : '<small>nur ansehen</small>'}</div>
+      <div class="who"><span>${esc(v.name)}</span>${!mine ? `<small>${teamsMode ? writerName + ' schreibt, ' : ''}nur ansehen</small>` : teamsMode ? `<small>${S.iWrite ? 'du schreibst' : writerName + ' schreibt'}</small>` : ''}</div>
       ${tbl}
       <div class="total"><span>Gesamt</span><b class="${bump ? 'bump' : ''}">${v.total}</b></div>
     </div>
-    ${mine && playing && !botBusy ? '<p class="note">Tippe auf ein schraffiertes Feld und trag ein, was du gewürfelt hast.</p>' : ''}
+    ${canWrite && playing && !botBusy ? '<p class="note">Tippe auf ein schraffiertes Feld und trag ein, was du gewürfelt hast.</p>' : ''}
+    ${teamsMode && mine && playing && !S.iWrite ? `<p class="note">${writerName} schreibt für euer Team. Du siehst den Zettel live.</p>` : ''}
     <div class="tools">
-      ${mine && v.canUndo ? '<button class="btn ghost" id="undo">Letzten Eintrag löschen</button>' : ''}
+      ${teamsMode && mine && playing && !S.iWrite ? '<button class="btn ghost" id="wr">Ich schreibe</button>' : ''}
+      ${canWrite && v.canUndo ? '<button class="btn ghost" id="undo">Letzten Eintrag löschen</button>' : ''}
       ${solo && playing ? '<button class="btn ghost" data-leave>Solo beenden</button>' : ''}
       ${S.state === 'finished' ? '<button class="btn ghost" id="res">Ergebnis</button>' : ''}
     </div>
@@ -592,12 +657,15 @@ function renderGame(app) {
     td.onclick = () => open(td);
     td.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(td); } };
   });
+  const wr = $('wr'); if (wr) wr.onclick = () => send({ t: 'writer' });
   const undo = $('undo'); if (undo) undo.onclick = () => send({ t: 'undo' });
   const res = $('res'); if (res) res.onclick = () => { closedWin = false; showWinner(); };
   const again = $('again'); if (again) again.onclick = () => { closedWin = false; hideWinner(); send({ t: 'again' }); };
 
-  if (S.state === 'finished' && !closedWin) showWinner();
-  else if (S.state !== 'finished') hideWinner();
+  if (S.state === 'finished' && !closedWin) {
+    if ($('win').classList.contains('show')) { const el = $('winin').querySelector('.settle'); if (el) el.outerHTML = settleHtml(); } // nur die Abrechnung auffrischen
+    else showWinner();
+  } else if (S.state !== 'finished') hideWinner();
 }
 
 /* ---------- Eintragen ---------- */
@@ -644,24 +712,37 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closePicker(
 /* ---------- Siegerehrung ---------- */
 const crown = `<svg class="crown" viewBox="0 0 92 70" aria-hidden="true"><path d="M6 58 L2 14 L26 34 L46 6 L66 34 L90 14 L86 58 Z" fill="#d8ab46" stroke="#8c6a1d" stroke-width="4" stroke-linejoin="round"/><rect x="6" y="58" width="80" height="9" rx="3" fill="#8c6a1d"/><circle cx="2" cy="14" r="5" fill="#b9342a"/><circle cx="46" cy="6" r="5" fill="#b9342a"/><circle cx="90" cy="14" r="5" fill="#b9342a"/></svg>`;
 
-// Abrechnung: jeder Spieler gegen jeden, Differenz der Gesamtpunkte mal Einsatz
+// Abrechnung: Differenz der Gesamtpunkte mal Einsatz. Im Team-Modus wählt man pro Gegner-Team, mit wem man abrechnet.
 function settleHtml() {
-  if (!S.stake || S.players.length < 2) return '';
-  const me = S.players[S.me];
+  if (!S.stake || S.units.length < 2) return '';
+  const mu = S.units[S.myUnit], teams = S.mode === 'teams';
   let net = 0;
-  const rows = S.players.map((p, i) => {
-    if (i === S.me) return '';
-    const diff = me.total - p.total, d = diff * S.stake;
-    net += d;
-    const txt = d > 0 ? `${esc(p.name)} zahlt dir` : d < 0 ? `Du zahlst ${esc(p.name)}` : 'quitt';
-    return `<div class="srow"><div class="who"><b>${esc(p.name)}</b><small>${diff === 0 ? 'gleich viele Punkte' : plural(Math.abs(diff), 'Punkt', 'Punkte') + ' Unterschied'}, ${txt}</small></div><div class="money ${mcls(d)}">${seur(d)}</div></div>`;
+  const nm = i => esc((S.players[i] || {}).name || '?');
+  const rows = S.units.map((u, ui) => {
+    if (ui === S.myUnit) return '';
+    const diff = mu.total - u.total, d = diff * S.stake;
+    const info = diff === 0 ? 'gleich viele Punkte' : plural(Math.abs(diff), 'Punkt', 'Punkte') + ' Unterschied';
+    if (!teams) {
+      net += d;
+      const txt = d > 0 ? `${esc(u.name)} zahlt dir` : d < 0 ? `Du zahlst ${esc(u.name)}` : 'quitt';
+      return `<div class="srow"><div class="who"><b>${esc(u.name)}</b><small>${info}, ${txt}</small></div><div class="money ${mcls(d)}">${seur(d)}</div></div>`;
+    }
+    const pr = S.pairs.find(([a, b]) => (a === S.me && u.members.includes(b)) || (b === S.me && u.members.includes(a)));
+    const other = pr ? (pr[0] === S.me ? pr[1] : pr[0]) : undefined;
+    if (other !== undefined) net += d;
+    const mate = mu.members.find(i => i !== S.me), mateOpp = other === undefined ? undefined : u.members.find(i => i !== other);
+    const btns = u.members.map(m => `<button data-pick="${S.me},${m}" class="${other === m ? 'on' : ''}">${nm(m)}</button>`).join('');
+    const line = other === undefined ? '' : `<small>${d > 0 ? nm(other) + ' zahlt dir' : d < 0 ? 'Du zahlst ' + nm(other) : 'quitt'}${mate !== undefined && mateOpp !== undefined ? `. ${nm(mate)} rechnet mit ${nm(mateOpp)} ab.` : '.'}</small>`;
+    return `<div class="srow"><div class="who"><b>${esc(u.name)}</b><small>${info}</small>
+      <div class="pks"><span>Abrechnen mit</span>${btns}</div>${line}</div>
+      <div class="money ${other === undefined ? 'zero' : mcls(d)}">${other === undefined ? 'offen' : seur(d)}</div></div>`;
   }).join('');
   return `<div class="settle"><h3>Abrechnung</h3><div class="sl">${eur(S.stake)} pro Punkt Unterschied</div>${rows}
     <div class="snet"><span>Du insgesamt</span><span class="money ${mcls(net)}">${seur(net)}</span></div></div>`;
 }
 
 function showWinner() {
-  const list = S.players.map((p, i) => ({ name: p.name, total: p.total, i })).sort((a, b) => b.total - a.total);
+  const list = S.units.map((p, i) => ({ name: p.name, total: p.total, i })).sort((a, b) => b.total - a.total);
   const best = list[0].total;
   const winners = list.filter(p => p.total === best);
   const top = list.slice(0, 3);
@@ -710,11 +791,20 @@ const loadStats = () => { try { return JSON.parse(localStorage.getItem(STAT_KEY)
 const saveStats = s => { try { localStorage.setItem(STAT_KEY, JSON.stringify(s)); } catch {} };
 
 // Jedes fertige Spiel wird genau einmal gespeichert (die Spiel-Nummer verhindert Doppelzählung)
+function matchedNames(m) { // Team-Modus: mit wem ich abrechne
+  if (m.mode !== 'teams') return undefined;
+  return m.pairs.filter(pr => pr.includes(m.me)).map(pr => m.players[pr[0] === m.me ? pr[1] : pr[0]].name);
+}
 function recordGame(m) {
   const st = loadStats();
-  if (st.games.some(g => g.id === m.game)) return;
+  const names = matchedNames(m);
+  const ex = st.games.find(g => g.id === m.game);
+  if (ex) { // die Wahl der Abrechnung kommt erst nach dem Spielende
+    if (names !== undefined && m.players.length >= ex.players.length && JSON.stringify(ex.m) !== JSON.stringify(names)) { ex.m = names; saveStats(st); }
+    return;
+  }
   const me = m.players[m.me];
-  st.games.push({ id: m.game, t: Date.now(), i: m.me, score: me.total, k: m.stake || 0, players: m.players.map(p => ({ n: p.name, s: p.total })) });
+  st.games.push({ id: m.game, t: Date.now(), i: m.me, score: me.total, k: m.stake || 0, m: names, players: m.players.map(p => ({ n: p.name, s: p.total, u: p.u })) });
   if (st.games.length > 2000) st.games.shift();
   saveStats(st);
 }
@@ -726,17 +816,17 @@ function aggregate() {
   games.forEach(g => {
     const top = Math.max(...g.players.map(p => p.s));
     r.sum += g.score; r.best = Math.max(r.best, g.score);
-    if (g.score === top) (g.players.filter(p => p.s === top).length > 1 ? r.d++ : r.w++); else r.l++;
+    if (g.score === top) (new Set(g.players.filter(p => p.s === top).map(p => p.u === undefined ? p.n : p.u)).size > 1 ? r.d++ : r.w++); else r.l++;
     const k = g.k || 0;
     let net = 0;
     g.players.forEach((p, idx) => {
-      if (idx === g.i) return;
+      if (idx === g.i || (g.players[g.i].u !== undefined && p.u === g.players[g.i].u)) return; // nicht gegen sich oder den Partner
       const o = opp[p.n.toLowerCase()] || (opp[p.n.toLowerCase()] = { name: p.n, n: 0, w: 0, d: 0, l: 0, mine: 0, theirs: 0, cash: 0, mg: 0 });
       o.name = p.n; o.n++; o.mine += g.score; o.theirs += p.s;
       if (g.score > p.s) o.w++; else if (g.score === p.s) o.d++; else o.l++;
-      if (k) { const d = (g.score - p.s) * k; o.cash += d; o.mg++; net += d; }
+      if (k && (!g.m || g.m.includes(p.n))) { const d = (g.score - p.s) * k; o.cash += d; o.mg++; net += d; }
     });
-    if (k) {
+    if (k && (!g.m || g.m.length)) {
       r.mg++; r.cash += net;
       r.bestNet = r.bestNet === null ? net : Math.max(r.bestNet, net);
       r.worstNet = r.worstNet === null ? net : Math.min(r.worstNet, net);
@@ -814,6 +904,8 @@ function closeStats() { $('stats').classList.remove('show'); }
 document.addEventListener('click', e => {
   if (e.target.closest('[data-stats]')) openStats();
   if (e.target.closest('[data-leave]')) leaveRoom();
+  const pk = e.target.closest('[data-pick]');
+  if (pk) { const [a, b] = pk.dataset.pick.split(',').map(Number); send({ t: 'pick', a, b }); }
 });
 
 // Tisch verlassen und zurück zur Startseite (Verbindung bleibt offen für die Liste der offenen Tische)
@@ -874,7 +966,7 @@ function soloState() {
     players: [mk(solo.name, solo.me, true), mk('Bot ' + LEVELS[solo.level], solo.bot, false)] };
 }
 function soloSync() {
-  S = soloState();
+  S = norm(soloState());
   if (view === null || view > 1) view = 0;
   if (S.state === 'finished') { recordGame(S); try { localStorage.removeItem(SOLO_KEY); } catch {} }
   else { try { localStorage.setItem(SOLO_KEY, JSON.stringify(solo)); } catch {} }
