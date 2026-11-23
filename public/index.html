@@ -294,7 +294,8 @@
   .seg button { border:0; border-radius:11px; background:none; color:var(--ivory); font-weight:700; font-size:17px; padding:10px; }
   .seg button.on { background:var(--ivory); color:var(--felt-deep); }
   .vs .money { font-size:26px; flex:none; }
-  .vs .pay { margin-top:10px; width:100%; padding:8px; font-size:15px; border-radius:20px; border:2px solid rgba(244,237,218,.35); background:none; color:var(--ivory); font-weight:700; }
+  .payrow { display:grid; grid-template-columns:1.6fr 1fr; gap:8px; margin-top:10px; }
+  .vs .pay { margin-top:0; width:100%; padding:8px; font-size:15px; border-radius:20px; border:2px solid rgba(244,237,218,.35); background:none; color:var(--ivory); font-weight:700; }
 
   /* ---------- Teams ---------- */
   .seats.ten { grid-template-columns:repeat(5,1fr); gap:12px 4px; }
@@ -851,7 +852,8 @@ function moneyBody(a) {
         <div class="nm"><b>${esc(o.name)}</b><small>${plural(o.mg, 'Spiel', 'Spiele')} um Geld</small></div>
         <div class="money ${mcls(o.cash)}">${seur(o.cash)}</div></div>
       <div class="l3" style="margin-top:8px">${o.cash > 0 ? `${esc(o.name)} schuldet dir ${eur(o.cash)}.` : o.cash < 0 ? `Du schuldest ${esc(o.name)} ${eur(-o.cash)}.` : 'Ihr seid quitt.'}</div>
-      ${o.cash ? `<button class="pay" data-pay="${esc(o.name.toLowerCase())}">${o.cash > 0 ? 'Erhalten' : 'Bezahlt'}, Bilanz auf 0 setzen</button>` : ''}
+      ${o.cash ? `<div class="payrow"><button class="pay" data-part="${esc(o.name.toLowerCase())}">${o.cash > 0 ? 'Erhaltenen Betrag eintragen' : 'Gezahlten Betrag eintragen'}</button>
+        <button class="pay" data-pay="${esc(o.name.toLowerCase())}">${o.cash > 0 ? 'Alles erhalten' : 'Alles bezahlt'}</button></div>` : ''}
     </div>`).join('')}`;
 }
 function openStats() {
@@ -882,6 +884,17 @@ function openStats() {
     <div class="seg" role="tablist"><button role="tab" data-tab="games" class="${statTab === 'games' ? 'on' : ''}">Spiele</button><button role="tab" data-tab="money" class="${statTab === 'money' ? 'on' : ''}">Geld</button></div>${body}
     <div class="stfoot">Die Statistik liegt nur auf diesem Gerät.${a.n ? '<br><button class="btn ghost" id="streset">Statistik löschen</button>' : ''}</div>`;
   document.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { statTab = b.dataset.tab; openStats(); });
+  document.querySelectorAll('[data-part]').forEach(b => b.onclick = () => {
+    const o = aggregate().money.find(x => x.name.toLowerCase() === b.dataset.part);
+    if (!o || !o.cash) return;
+    const max = Math.abs(o.cash);
+    const txt = prompt(o.cash > 0 ? `Wie viel hat dir ${o.name} gezahlt? (offen: ${eur(max)})` : `Wie viel hast du ${o.name} gezahlt? (offen: ${eur(max)})`);
+    if (txt === null) return;
+    const v = Math.round(parseFloat(txt.replace(',', '.').replace(/[^\d.]/g, '')) * 100);
+    if (!(v > 0)) { alert('Bitte einen Betrag über 0 eingeben.'); return; }
+    if (v > max) { alert(`Das ist mehr als offen (${eur(max)}).`); return; }
+    const st = loadStats(); st.pay = st.pay || []; st.pay.push({ n: o.name, c: o.cash > 0 ? -v : v, t: Date.now() }); saveStats(st); openStats();
+  });
   document.querySelectorAll('[data-pay]').forEach(b => b.onclick = () => {
     const o = aggregate().money.find(x => x.name.toLowerCase() === b.dataset.pay);
     if (!o || !o.cash) return;
