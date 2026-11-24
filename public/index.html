@@ -97,12 +97,12 @@
     background-image:repeating-linear-gradient(to bottom, transparent 0 53px, var(--rule) 53px 54px);
     box-shadow:0 2px 0 #e6dcc2, 0 5px 0 #d2c6a6, 0 7px 0 #e6dcc2, 0 16px 26px rgba(0,0,0,.45); }
   /* Ecken wirklich wegschneiden (samt Schatten), damit hinter dem Knick nur die Matte zu sehen ist */
-  .slip, .ticket, .tile, .zb { --f:30px; --o:60px;
+  .slip, .ticket, .tile, .zb, #picker, .opt { --f:30px; --o:60px;
     clip-path:polygon(calc(var(--f) + var(--o)) calc(var(--o) * -1), calc(100% + var(--o)) calc(var(--o) * -1), calc(100% + var(--o)) calc(100% - var(--f) - var(--o)), calc(100% - var(--f) - var(--o)) calc(100% + var(--o)), calc(var(--o) * -1) calc(100% + var(--o)), calc(var(--o) * -1) calc(var(--f) + var(--o))); }
   .tile { --f:20px; }
-  .slip::before, .slip::after, .ticket::before, .ticket::after, .tile::before, .tile::after, .zb::before, .zb::after { content:""; position:absolute; width:var(--f,30px); height:var(--f,30px); z-index:1; }
-  .slip::before, .ticket::before, .tile::before, .zb::before { left:0; top:0; background:linear-gradient(135deg, transparent 0 50%, #d9cdac 50% 100%); box-shadow:2px 2px 4px rgba(0,0,0,.3); border-bottom-right-radius:4px; }
-  .slip::after, .ticket::after, .tile::after, .zb::after { right:0; bottom:0; background:linear-gradient(315deg, transparent 0 50%, #d9cdac 50% 100%); box-shadow:-2px -2px 4px rgba(0,0,0,.25); border-top-left-radius:4px; }
+  .slip::before, .slip::after, .ticket::before, .ticket::after, .tile::before, .tile::after, .zb::before, .zb::after, #picker::before, #picker::after, .opt::before, .opt::after { content:""; position:absolute; width:var(--f,30px); height:var(--f,30px); z-index:1; }
+  .slip::before, .ticket::before, .tile::before, .zb::before, #picker::before, .opt::before { left:0; top:0; background:linear-gradient(135deg, transparent 0 50%, #d9cdac 50% 100%); box-shadow:2px 2px 4px rgba(0,0,0,.3); border-bottom-right-radius:4px; }
+  .slip::after, .ticket::after, .tile::after, .zb::after, #picker::after, .opt::after { right:0; bottom:0; background:linear-gradient(315deg, transparent 0 50%, #d9cdac 50% 100%); box-shadow:-2px -2px 4px rgba(0,0,0,.25); border-top-left-radius:4px; }
   .slip label { display:block; font-weight:800; margin-bottom:2px; color:#4a4a4a; font-size:18px; }
   .slip input { width:100%; font-family:var(--pen); font-weight:700; font-size:38px; color:var(--ink); background:transparent; border:0; border-bottom:2px solid var(--ink); padding:0 2px 0; margin-bottom:22px; outline:none; border-radius:0; }
   .slip input:focus { border-bottom-color:var(--red); }
@@ -251,7 +251,6 @@
   .opt.face { display:flex; flex-direction:column; align-items:center; gap:4px; padding:8px 4px 9px; }
   .opt.face svg.die { width:34px; height:auto; }
   .opt.face .p { font-family:var(--display); font-size:19px; opacity:1; }
-  #picker .cancel { margin-top:14px; width:100%; border:0; background:transparent; color:#555; font-weight:700; padding:8px; }
 
   /* ---------- Siegerehrung ---------- */
   #win { position:fixed; inset:0; z-index:30; display:none; overflow-y:auto; }
@@ -382,6 +381,39 @@
   .zb.hot::before { background:linear-gradient(135deg, transparent 0 50%, #c98a1f 50% 100%); }
   .zb.hot::after { background:linear-gradient(315deg, transparent 0 50%, #c98a1f 50% 100%); }
   .zb.hot .tape { width:96px; height:28px; margin-left:-48px; top:-15px; }
+
+  /* ---------- Auswahl-Fenster als Zettel ---------- */
+  #picker { --f:30px; width:calc(100% - 24px); max-width:456px; margin:0 12px calc(12px + env(safe-area-inset-bottom)); border-radius:4px; padding:28px 18px 18px; max-height:86vh;
+    background-image:repeating-linear-gradient(to bottom, transparent 0 26px, var(--rule) 26px 27px);
+    box-shadow:0 2px 0 #e6dcc2, 0 5px 0 #d2c6a6, 0 7px 0 #e6dcc2, 0 18px 30px rgba(0,0,0,.5); transform:rotate(-.4deg); }
+  #picker h3 { font-family:var(--pen); font-weight:700; font-size:40px; color:var(--ink); line-height:1; }
+  #picker .sub { color:#4a4a4a; font-weight:600; }
+  #picker .grp { color:#4a4a4a; }
+  .opt { --f:12px; position:relative; border:0; border-radius:3px; background:#fffdf6 repeating-linear-gradient(to bottom, transparent 0 26px, var(--rule) 26px 27px); color:var(--ink);
+    padding:12px 4px 10px; box-shadow:0 2px 0 #e6dcc2, 0 4px 0 #d2c6a6, 0 8px 10px rgba(0,0,0,.22); }
+  .opt:active, .opts .opt:active { transform:translateY(2px) rotate(0); box-shadow:0 1px 0 #d2c6a6, 0 3px 5px rgba(0,0,0,.2); }
+  .opt .v { font-family:var(--pen); font-weight:700; font-size:40px; line-height:1; color:var(--ink); }
+  .opt .p { color:#555; opacity:1; }
+  .opt.strike { background:#fffdf6 repeating-linear-gradient(to bottom, transparent 0 26px, var(--rule) 26px 27px); border:0; box-shadow:0 2px 0 #e6dcc2, 0 4px 0 #d2c6a6, 0 8px 10px rgba(0,0,0,.22); }
+  .opt.strike .v { color:var(--red); }
+  .opt.strike:active { box-shadow:0 1px 0 #d2c6a6, 0 3px 5px rgba(0,0,0,.2); }
+  .opts.one .opt .v { font-size:30px; } .opts.one .opt .p { font-family:var(--pen); font-weight:700; font-size:32px; color:var(--ink); }
+  .opt.face .p { font-family:var(--pen); font-weight:700; font-size:30px; color:var(--ink); }
+  #picker .cancel { margin-top:18px; }
+
+  /* ---------- Auswahl-Knöpfe im Kork-Stil ---------- */
+  .opt, .opt.strike, #picker .zb.cancel { clip-path:none; border:0; border-radius:12px; color:var(--brown); transform:none;
+    background-color:var(--cork); background-image:var(--speck), linear-gradient(rgba(255,255,255,.16), rgba(0,0,0,.03)); background-size:70px 70px, auto;
+    box-shadow:0 5px 0 var(--cork-d), 0 9px 12px rgba(0,0,0,.25), inset 0 2px 0 rgba(255,255,255,.3); }
+  .opt::before, .opt::after, #picker .zb.cancel::before, #picker .zb.cancel::after { display:none; }
+  .opt:active, .opts .opt:active, #picker .zb.cancel:active { transform:translateY(4px); box-shadow:0 1px 0 var(--cork-d), inset 0 2px 0 rgba(255,255,255,.3); }
+  .opt .v { font-family:var(--display); font-weight:400; font-size:30px; color:var(--brown); }
+  .opt .p { color:var(--brown2); font-weight:700; }
+  .opt.strike .v, .opt.strike .p { color:var(--red); }
+  .opts.one .opt .v { font-size:20px; } .opts.one .opt .p { font-family:var(--display); font-weight:400; font-size:18px; color:var(--brown); }
+  .opts.one .opt.strike .p { color:var(--red); }
+  .opt.face .p { font-family:var(--display); font-weight:400; font-size:19px; color:var(--brown); }
+  #picker .zb.cancel { font-family:var(--ui); font-size:19px; font-weight:800; padding:14px; margin-top:18px; }
 
   @media (prefers-reduced-motion:reduce) {
     *, *::before, *::after { animation-duration:.01ms !important; animation-delay:0ms !important; transition:none !important; }
@@ -795,7 +827,7 @@ function openPicker(col, row) {
   p.innerHTML = `<i class="tape"></i><div class="head">${head}<div><h3>${ROWNAMES[row]}</h3></div></div>
     <p class="sub">${row <= 5 ? `Wie viele Würfel zeigen die ${row + 1}?` : 'Was ist dir gelungen?'} Spalte: ${COLNAMES[col]}.</p>
     ${cls === 'grande' ? `<div class="gr">${opts}</div>` : `<div class="opts ${cls}">${opts}</div>`}
-    <button class="cancel" id="cancel">Abbrechen</button>`;
+    <button class="zb cancel" id="cancel">Abbrechen</button>`;
   p.querySelectorAll('[data-v]').forEach(b => b.onclick = () => {
     justSet = { view, c: col, r: row };
     if (navigator.vibrate) navigator.vibrate(12);
@@ -1268,7 +1300,7 @@ function openBotPicker() {
       <button class="opt" data-lv="normal"><span class="v">Normal</span><span class="p" style="font-family:var(--ui);font-size:15px">spielt ordentlich</span></button>
       <button class="opt" data-lv="hard"><span class="v">Schwer</span><span class="p" style="font-family:var(--ui);font-size:15px">macht kaum Fehler</span></button>
     </div>
-    <button class="cancel" id="cancel">Abbrechen</button>`;
+    <button class="zb cancel" id="cancel">Abbrechen</button>`;
   p.querySelectorAll('[data-lv]').forEach(b => b.onclick = () => { closePicker(); startSolo(b.dataset.lv); });
   $('cancel').onclick = closePicker;
   $('scrim').classList.add('show');
