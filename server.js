@@ -253,6 +253,24 @@ function handle(ws, msg) {
     return pushRooms();
   }
 
+  // Revanche: sofort neue Runde mit denselben Spielern, Teams und demselben Einsatz
+  if (msg.t === 'rematch') {
+    if (idx !== 0 || room.state !== 'finished') return;
+    room.players = room.players.filter(p => p.connected);
+    room.pairs = [];
+    if (!canStart(room)) { // z. B. ein Spieler ist weg: zurück in den Warteraum
+      room.state = 'lobby'; room.units = null;
+      if (room.mode === 'teams') room.players.forEach(p => { if (p.team === null || room.players.filter(q => q.team === p.team).length > 2) assignTeam(room, p); });
+      broadcast(room);
+      return pushRooms();
+    }
+    room.state = 'playing';
+    room.game = crypto.randomBytes(6).toString('hex');
+    room.units = buildUnits(room);
+    broadcast(room);
+    return pushRooms();
+  }
+
   // Einzeln oder Teams (2er): nur der Gastgeber im Warteraum
   if (msg.t === 'mode') {
     if (idx !== 0 || room.state !== 'lobby' || (msg.value !== 'single' && msg.value !== 'teams')) return;
