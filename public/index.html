@@ -478,9 +478,9 @@ function connect(then) {
       norm(m);
       if (m.state === 'finished' && m.game) recordGame(m);
       if (m.state !== 'finished') closedWin = false;
-      const prev = S && S.state;
+      const prevGame = S && S.game;
       S = m;
-      if (view === null || view >= S.units.length || (prev === 'lobby' && S.state !== 'lobby')) view = S.myUnit;
+      if (view === null || view >= S.units.length || (S.game && S.game !== prevGame)) view = S.myUnit;
       render();
     }
   };
@@ -730,7 +730,7 @@ function renderGame(app) {
       ${S.state === 'finished' ? '<button class="btn ghost" id="res">Ergebnis</button>' : ''}
     </div>
     ${S.state === 'finished' ? `<div style="margin-top:16px">${settleHtml()}</div>` : ''}
-    ${S.state === 'finished' && S.me === 0 ? '<div style="margin-top:14px"><button class="btn" id="again">Neue Runde</button></div>' : ''}
+    ${S.state === 'finished' && S.me === 0 ? `<div style="margin-top:14px"><button class="btn" id="again">Revanche</button>${solo ? '' : '<button class="btn ghost" id="lobbyback" style="margin-top:10px">Zurück in den Warteraum</button>'}</div>` : ''}
     ${S.state === 'finished' ? '<div style="margin-top:12px"><button class="btn ghost" data-leave>Zurück zum Start</button></div>' : ''}
     <div class="err" role="alert">${esc(error)}</div>`;
 
@@ -743,7 +743,8 @@ function renderGame(app) {
   const wr = $('wr'); if (wr) wr.onclick = () => send({ t: 'writer' });
   const undo = $('undo'); if (undo) undo.onclick = () => send({ t: 'undo' });
   const res = $('res'); if (res) res.onclick = () => { closedWin = false; showWinner(); };
-  const again = $('again'); if (again) again.onclick = () => { closedWin = false; hideWinner(); send({ t: 'again' }); };
+  const again = $('again'); if (again) again.onclick = () => { closedWin = false; hideWinner(); send({ t: solo ? 'again' : 'rematch' }); };
+  const lb = $('lobbyback'); if (lb) lb.onclick = () => { closedWin = false; hideWinner(); send({ t: 'again' }); };
 
   if (S.state === 'finished' && !closedWin) {
     if ($('win').classList.contains('show')) { const el = $('winin').querySelector('.settle'); if (el) el.outerHTML = settleHtml(); } // nur die Abrechnung auffrischen
@@ -843,14 +844,16 @@ function showWinner() {
     ${rest ? `<ul class="rest">${rest}</ul>` : ''}
     ${settleHtml()}
     <div class="btns">
-      ${S.me === 0 ? '<button class="btn" id="again2">Neue Runde</button>' : ''}
+      ${S.me === 0 ? '<button class="btn" id="again2">Revanche</button>' : ''}
+      ${S.me === 0 && !solo ? '<button class="btn ghost" id="lobbyback2">Zurück in den Warteraum</button>' : ''}
       <button class="btn ghost" data-stats>Statistik</button>
       <button class="btn ghost" id="closew">Zettel ansehen</button>
       <button class="btn ghost" data-leave>Zurück zum Start</button>
     </div>`;
   $('win').classList.add('show');
   $('closew').onclick = () => { closedWin = true; hideWinner(); };
-  const a2 = $('again2'); if (a2) a2.onclick = () => { closedWin = false; hideWinner(); send({ t: 'again' }); };
+  const a2 = $('again2'); if (a2) a2.onclick = () => { closedWin = false; hideWinner(); send({ t: solo ? 'again' : 'rematch' }); };
+  const lb2 = $('lobbyback2'); if (lb2) lb2.onclick = () => { closedWin = false; hideWinner(); send({ t: 'again' }); };
   // Punkte hochzählen
   document.querySelectorAll('.bar b[data-to]').forEach(el => {
     const to = +el.dataset.to, t0 = performance.now() + 500, dur = 1100;
